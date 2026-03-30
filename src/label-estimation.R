@@ -21,7 +21,7 @@
 #' \dontrun{
 #' make_q_model(q_func = "q_glm", action_name = "treatment")
 #' }
-make_q_model <- function(q_func, covariates, sl_library = NULL, action_name = "A", v_restricted = FALSE) {
+make_q_model <- function(q_func, covariates=c("x1","x2"), sl_library = NULL, action_name = "A", v_restricted = FALSE) {
   formula_obj <- if(v_restricted){formula_obj <- stats::reformulate(covariates)
   } else{
     formula_obj <- stats::as.formula(
@@ -50,6 +50,7 @@ make_q_model <- function(q_func, covariates, sl_library = NULL, action_name = "A
 #' @param type String indicating the type of learner. 
 #'   ("ql", "drql", "ptl", "policytree").
 #' @param action_name String indicating the treatment variable name. Defaults to "A".
+#' @param covariates Character vector of covariate names. Defaults to `c("x1", "x2")`.
 #' @param q_func String indicating the type of function for Q-learning. 
 #'   ("q_glm", "q_rf", "q_xgboost", "q_sl"). Defaults to NULL.
 #' @param sl_library Vector of libraries for SuperLearner. 
@@ -73,7 +74,7 @@ make_q_model <- function(q_func, covariates, sl_library = NULL, action_name = "A
 #' }
 add_qlearner <- function(learners, name, 
                          type=c("ql", "drql", "ptl", "policytree"), 
-                         action_name = "A",
+                         action_name = "A", covariates=c("x1","x2"), 
                          q_func = NULL, sl_library = NULL,
                          depth = 2, hybrid = FALSE) {
   
@@ -81,7 +82,7 @@ add_qlearner <- function(learners, name,
     valid_q_funcs <- c("q_glm", "q_rf", "q_xgboost", "q_sl")
     if (is.null(q_func) || !q_func %in% valid_q_funcs)
       stop("Unknown q_func '", q_func, "'. Choose from: ", paste(valid_q_funcs, collapse = ", "))
-    q_model  <- make_q_model(q_func, sl_library, 
+    q_model  <- make_q_model(q_func, sl_library, covariates=covariates,
                              action_name = action_name, v_restricted = FALSE)
     qv_model <- make_q_model(q_func, sl_library, 
                              action_name = action_name, v_restricted = TRUE)

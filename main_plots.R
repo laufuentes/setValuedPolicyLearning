@@ -212,8 +212,8 @@ if(synthetic_scenario){
 saveRDS(object = results, file = paste0("experts_pred/", score_name, 
                                         "plot_results_", type, "_", n, ".rds"))
 
-results <- readRDS(paste0("experts_pred/", score_name, 
-                          "plot_results_", type, ".rds"))
+#results <- readRDS(paste0("experts_pred/", score_name, 
+#                          "plot_results_", type, ".rds"))
 
 random_rate <- seq(0,1, 0.1)
 spv_data <- dplyr::bind_rows(
