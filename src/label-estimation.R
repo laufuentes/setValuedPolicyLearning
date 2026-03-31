@@ -22,12 +22,12 @@
 #' make_q_model(q_func = "q_glm", action_name = "treatment")
 #' }
 make_q_model <- function(q_func, covariates=c("x1","x2"), sl_library = NULL, action_name = "A", v_restricted = FALSE) {
-  formula_obj <- if(v_restricted){formula_obj <- stats::reformulate(covariates)
-  } else{
-    formula_obj <- stats::as.formula(
-      paste("~", paste(covariates, collapse = " + "), "+", action_name, "+",
-            paste0(action_name, ":", covariates, collapse = " + "))
-    )}
+  formula_obj <- if (v_restricted) {
+    stats::reformulate(covariates)
+  } else {
+    # Interaction terms with action only; polle adds the main action effect
+    stats::reformulate(c(covariates, paste0(action_name, ":", covariates)))
+  }
   
   switch(q_func,
          "q_glm" = polle::q_glm(formula = formula_obj, family = gaussian()),
@@ -82,10 +82,16 @@ add_qlearner <- function(learners, name,
     valid_q_funcs <- c("q_glm", "q_rf", "q_xgboost", "q_sl")
     if (is.null(q_func) || !q_func %in% valid_q_funcs)
       stop("Unknown q_func '", q_func, "'. Choose from: ", paste(valid_q_funcs, collapse = ", "))
-    q_model  <- make_q_model(q_func, sl_library, covariates=covariates,
-                             action_name = action_name, v_restricted = FALSE)
-    qv_model <- make_q_model(q_func, sl_library, covariates=covariates,
-                             action_name = action_name, v_restricted = TRUE)
+    q_model  <- make_q_model(q_func,
+                             covariates   = covariates,
+                             sl_library   = sl_library,
+                             action_name  = action_name,
+                             v_restricted = FALSE)
+    qv_model <- make_q_model(q_func,
+                             covariates   = covariates,
+                             sl_library   = sl_library,
+                             action_name  = action_name,
+                             v_restricted = TRUE)
   } else {
     q_model  <- NULL
     qv_model <- NULL
