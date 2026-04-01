@@ -7,30 +7,30 @@ density_plot <- ggplot2::ggplot(data_toghether,
   ggplot2::geom_density(linewidth = 1) +
   ggplot2::scale_color_viridis_d(option="magma")+
   ggplot2::facet_grid(rows=vars(mechanism),
-             cols=vars(model)) +
+                      cols=vars(model)) +
   #gganimate:: transition_states(type, transition_length = 0, 
   #                              state_length = 1) + # remove for GIF
   ggplot2::labs(y = "Density",
-       color = "Type of labels",
-       linetype = "Score Type") +
+                color = "Type of labels",
+                linetype = "Score Type") +
   ggplot2::theme(strip.placement = "outside",
-        strip.background = element_blank())#+gganimate::ease_aes('linear')
+                 strip.background = element_blank())#+gganimate::ease_aes('linear')
 ggplot2::ggsave(density_plot, 
-                filename=paste0("images/", score_name, n, "/", "density_", type, ".pdf"), 
+                filename=paste0("images/", score_name, "density_", type, ".pdf"), 
                 width = 10, height = 8)
 
 if(synthetic_scenario){
   density_plot <- density_plot + 
     ggplot2::geom_density(data = data_true_all,
-                        ggplot2::aes(x = value),
-                        color = "aquamarine1",
-                        linetype = "dashed",
-                        inherit.aes = FALSE, linewidth=1.2)
+                          ggplot2::aes(x = value),
+                          color = "aquamarine1",
+                          linetype = "dashed",
+                          inherit.aes = FALSE, linewidth=1.2)
 } 
 
 # # remove for GIF
 # gganimate::anim_save(
-#   paste0("images/experts/", folder, "margin/, n, "/", density_", type, ".gif"),
+#   paste0("images/experts/", folder, "margin/, density_", type, ".gif"),
 #   animate(density_plot, fps = 5, width = 800, height = 600, renderer = gifski_renderer())
 # )
 ecdf_plot <- ggplot2::ggplot(data_toghether,
@@ -48,12 +48,12 @@ ecdf_plot <- ggplot2::ggplot(data_toghether,
 if(synthetic_scenario){
   ecdf_plot<- ecdf_plot + 
     ggplot2::stat_ecdf(data = data_true_all, aes(x=value),
-                     color = "aquamarine1",
-                     linetype = "dashed", linewidth=1.2, geom = "step")
+                       color = "aquamarine1",
+                       linetype = "dashed", linewidth=1.2, geom = "step")
 }
 
 ggplot2::ggsave(ecdf_plot, 
-                filename=paste0("images/",score_name, n, "/","ecdf_",type,".pdf"), 
+                filename=paste0("images/",score_name, "ecdf_",type,".pdf"), 
                 width = 10, height = 8)
 
 
@@ -72,7 +72,7 @@ if(synthetic_scenario){
 # For uppest-lower bound 
 treatment<- matrix(0, nrow=nrow(rbind(train1, train2)), ncol=m)
 treatment[cbind(1:nrow(treatment), c(train1[, treatment_name],
-                                    train2[, treatment_name]))] <- 1
+                                     train2[, treatment_name]))] <- 1
 
 model <- grf::regression_forest(
   X = cbind(rbind(train1, train2)[, covariates_name], treatment),
@@ -92,8 +92,11 @@ for(i in 1:length(alphas)){
     mean_width[i,1,r]<- width(pred_set = confidence_set)
     spv[i,,1,r]<- bounds_set_policy_value(confidence_set, ab = ab,
                                           test= SL.out$df_new, levels=levels_A,
-                                          QAW.reg.train=SL.out$QAW.reg.train,
-                                          g.reg.train = SL.out$g.reg.train)
+                                          treatment_name = treatment_name,
+                                          outcome_name = outcome_name,
+                                          covariates = covariates_name,
+                                          mod_=SL.out$QAW.reg.train,
+                                          mod_ps = SL.out$g.reg.train)
     
     # SL 
     w.quantile <- stats::quantile(SL.out$rate_scores_sl_cal[,r], (1-alpha))
@@ -106,8 +109,11 @@ for(i in 1:length(alphas)){
     mean_width[i,2,r]<- width(pred_set = w.confidence_set)
     spv[i,,2,r]<- bounds_set_policy_value(w.confidence_set, ab = ab,
                                           test= SL.out$df_new, levels=levels_A,
-                                          QAW.reg.train=SL.out$QAW.reg.train,
-                                          g.reg.train = SL.out$g.reg.train)
+                                          treatment_name = treatment_name,
+                                          outcome_name = outcome_name,
+                                          covariates = covariates_name,
+                                          mod_=SL.out$QAW.reg.train,
+                                          mod_ps = SL.out$g.reg.train)
     
     # Exponential  
     exp.quantile <- stats::quantile(SL.out$rate_scores_exp_cal[,r], (1-alpha))
@@ -120,8 +126,11 @@ for(i in 1:length(alphas)){
     mean_width[i,3,r]<- width(pred_set = exp.confidence_set)
     spv[i,,3,r]<- bounds_set_policy_value(exp.confidence_set, ab = ab,
                                           test= SL.out$df_new, levels=levels_A,
-                                          QAW.reg.train=SL.out$QAW.reg.train,
-                                          g.reg.train = SL.out$g.reg.train)
+                                          treatment_name = treatment_name,
+                                          outcome_name = outcome_name,
+                                          covariates = covariates_name,
+                                          mod_=SL.out$QAW.reg.train,
+                                          mod_ps = SL.out$g.reg.train)
     if(synthetic_scenario){
       # Unweighted 
       cov_vec[i,1,r]<- coverage(true_set = SL.out$optimal_policy_new, 
@@ -165,9 +174,12 @@ for(i in 1:length(alphas)){
   
   mean_width[i,4,]<- width(pred_set = naive.confidence_set)
   spv[i,,4,]<- bounds_set_policy_value(naive.confidence_set, ab = ab,
-                                      test= SL.out$df_new, levels=levels_A,
-                                      QAW.reg.train=SL.out$QAW.reg.train,
-                                      g.reg.train = SL.out$g.reg.train)
+                                       test= SL.out$df_new, levels=levels_A,
+                                       treatment_name = treatment_name,
+                                       outcome_name = outcome_name,
+                                       covariates = covariates_name,
+                                       mod_=SL.out$QAW.reg.train,
+                                       mod_ps = SL.out$g.reg.train)
   
   if(synthetic_scenario){
     # uppest-lower bound set  
@@ -177,7 +189,7 @@ for(i in 1:length(alphas)){
                                          pred_set = naive.confidence_set)
     cov_unif[i,,4,]<- replicate(n_test,coverage_unif(SL.out$optimal_policy_new,
                                                      pred_set=naive.confidence_set))
-   # true 
+    # true 
     true_quant <- stats::quantile(SL.out$true_score, (1-alpha))
     true_binary_confidence_set <-  ifelse(SL.out$new_scores<true_quant, 1, 0)
     true_idx <- which(true_binary_confidence_set  != 0, arr.ind = TRUE) 
@@ -191,11 +203,14 @@ for(i in 1:length(alphas)){
     cov_relaxed[i,5,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new, 
                                          pred_set = true_confidence_set)
     cov_unif[i,,5,]<- replicate(n_test, coverage_unif(SL.out$optimal_policy_new,
-                                                     pred_set = true_confidence_set))
-    spv[i,,5,]<- bounds_set_policy_value(true_confidence_set, ab = ab, 
+                                                      pred_set = true_confidence_set))
+    spv[i,,5,]<- bounds_set_policy_value(true_confidence_set, ab = ab,
                                          test= SL.out$df_new, levels=levels_A,
-                                         QAW.reg.train=SL.out$QAW.reg.train,
-                                         g.reg.train = SL.out$g.reg.train) 
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name,
+                                         mod_=SL.out$QAW.reg.train,
+                                         mod_ps = SL.out$g.reg.train)
   }
   
   print(i)
@@ -210,7 +225,7 @@ if(synthetic_scenario){
 }
 
 saveRDS(object = results, file = paste0("experts_pred/", score_name, 
-                                        "plot_results_", type, "_", n, ".rds"))
+                                        "plot_results_", type,  ".rds"))
 
 #results <- readRDS(paste0("experts_pred/", score_name, 
 #                          "plot_results_", type, ".rds"))
@@ -231,13 +246,13 @@ spv_data <- dplyr::bind_rows(
 
 if(synthetic_scenario){
   spv_data <- dplyr::bind_rows(spv_data, 
-                        map_dfr(1:dim(results[["spv"]])[1], function(a) {
-                          data.frame(
-                            value = results[["spv"]][a, , 5, 1],
-                            mechanism = "True",
-                            level = paste0(alphas[a]),
-                            type = paste0(random_rate[1]))})
-                        )
+                               map_dfr(1:dim(results[["spv"]])[1], function(a) {
+                                 data.frame(
+                                   value = results[["spv"]][a, , 5, 1],
+                                   mechanism = "True",
+                                   level = paste0(alphas[a]),
+                                   type = paste0(random_rate[1]))})
+  )
 }
 
 spv_means <- spv_data %>%
@@ -254,22 +269,30 @@ est_set_unweighted <-  replicate(n_test,
                                  apply(unweighted_probs, 1, 
                                        function(x) which(stats::rmultinom(1,1,prob=x)!=0)))
 unweighted_set <- apply(est_set_unweighted, 1, unique)
-unweighted_SPV <-bounds_set_policy_value(unweighted_set, test= SL.out$df_new,
-                                         QAW.reg.train=SL.out$QAW.reg.train,
-                                         g.reg.train = SL.out$g.reg.train, 
-                                         ab = ab) 
+unweighted_SPV <-bounds_set_policy_value(unweighted_set, ab = ab,
+                                         test= SL.out$df_new, levels=levels_A,
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name,
+                                         mod_=SL.out$QAW.reg.train,
+                                         mod_ps = SL.out$g.reg.train)
 
 # SL SPV
 sl.probs<- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_new,
-                                   weights =SL.out$w.coef, 
+                                  weights =SL.out$w.coef, 
                                   df_pred = SL.out$df_new, 
                                   levels=as.numeric(levels_A))
 est_set_sl <-  replicate(n_test,apply(sl.probs, 1,
                                       function(x)which(stats::rmultinom(1,1,prob=x)!=0)))
 sl_set <- apply(est_set_sl, 1, unique)
-sl_SPV <- bounds_set_policy_value(sl_set, test= SL.out$df_new,
-                                  QAW.reg.train=SL.out$QAW.reg.train,
-                                  g.reg.train = SL.out$g.reg.train, ab = ab)
+sl_SPV <- bounds_set_policy_value(sl_set, ab = ab,
+                                  test= SL.out$df_new, levels=levels_A,
+                                  treatment_name = treatment_name,
+                                  outcome_name = outcome_name,
+                                  covariates = covariates_name,
+                                  mod_=SL.out$QAW.reg.train,
+                                  mod_ps = SL.out$g.reg.train)
+
 # Exp SPV
 exp_probs <- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_new,
                                     weights =SL.out$exp_weights, 
@@ -279,9 +302,14 @@ est_set_exp <-  replicate(n_test,
                           apply(exp_probs, 1,
                                 function(x)which(stats::rmultinom(1,1,prob=x)!=0)))
 exp_set <- apply(est_set_exp, 1, unique)
-exp_SPV <- bounds_set_policy_value(exp_set, test= SL.out$df_new,
-                                   QAW.reg.train=SL.out$QAW.reg.train,
-                                   g.reg.train = SL.out$g.reg.train, ab = ab)
+exp_SPV <- bounds_set_policy_value(exp_set, ab = ab,
+                                   test= SL.out$df_new, levels=levels_A,
+                                   treatment_name = treatment_name,
+                                   outcome_name = outcome_name,
+                                   covariates = covariates_name,
+                                   mod_=SL.out$QAW.reg.train,
+                                   mod_ps = SL.out$g.reg.train)
+
 
 hline_labels <- data.frame(
   x = 1,  # start of line (we'll extend it using xend)
@@ -292,10 +320,14 @@ hline_labels <- data.frame(
 )
 # True SPV
 if(synthetic_scenario){
-  true_SPV <-  bounds_set_policy_value(SL.out$optimal_policy_new,
-                                       test= SL.out$df_new,
-                                       QAW.reg.train=SL.out$QAW.reg.train,
-                                       g.reg.train = SL.out$g.reg.train, ab = ab)
+  true_SPV <-  bounds_set_policy_value(SL.out$optimal_policy_new, ab = ab,
+                                       test= SL.out$df_new, levels=levels_A,
+                                       treatment_name = treatment_name,
+                                       outcome_name = outcome_name,
+                                       covariates = covariates_name,
+                                       mod_=SL.out$QAW.reg.train,
+                                       mod_ps = SL.out$g.reg.train)
+  
   hline_labels <- data.frame(
     x = 1,  # start of line (we'll extend it using xend)
     xend = max(spv_means$level),  # end of line
@@ -353,15 +385,12 @@ spv_lines <- ggplot2::ggplot(spv_means,
   ) +
   ggplot2::facet_grid(rows=vars(mechanism)) +
   ggplot2::labs(title = "SPV",
-       x = "Level",
-       y = "Set policy value",
-       color = "Legend") +
+                x = "Level",
+                y = "Set policy value",
+                color = "Legend") +
   ggplot2::theme_minimal()
 
 spv_plot <- gridExtra::grid.arrange(spv_boxplot, spv_lines, ncol=2)
-ggplot2::ggsave(spv_plot, 
-                filename=paste0("images/", score_name,  n, "/","spv_plot_",type,".pdf"), 
-                width = 30, height = 15)
 
 mean_width_data <- dplyr::bind_rows(
   make_smaller_block(1, "Unweighted", results[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
@@ -386,7 +415,14 @@ mean_width_plot <- ggplot2::ggplot(data=mean_width_data,
   ggplot2::labs(title="Mean width", x = "Level", y = "Coverage") +
   ggplot2::theme_minimal()
 
+
+
 if(synthetic_scenario){
+  ggplot2::ggsave(spv_plot, 
+                  filename=paste0("images/", score_name, n, "/", "spv_plot_",type,".pdf"), 
+                  width = 30, height = 15)
+  
+  
   cov_data <- dplyr::bind_rows(
     make_block(1, "Unweighted", results[["cov_unif"]], alphas, random_rate), 
     make_block(2, "SL", results[["cov_unif"]], alphas, random_rate),
@@ -420,9 +456,11 @@ if(synthetic_scenario){
     ggplot2::facet_grid(rows=vars(mechanism)) +
     ggplot2::labs(title = "Coverage", x = "Level", y = "Coverage") +
     ggplot2::theme_minimal()
+  
   cov_width_plot <- gridExtra::grid.arrange(cov_plot, mean_width_plot, ncol=2)
+  
   ggplot2::ggsave(cov_width_plot, 
-                  filename=paste0("images/", score_name, n, "/", "/coverage-width_boxplots_", type, ".pdf"), 
+                  filename=paste0("images/", score_name, n, "/", "coverage-width_boxplots_", type, ".pdf"), 
                   width = 30, height = 15)
   
   
@@ -458,7 +496,7 @@ if(synthetic_scenario){
       color = "Random Rate") +
     ggplot2::theme_minimal(base_size = 14)
   
-  ggplot2::ggsave(cov_factor_plot, filename=paste0("images/",score_name, n, "/","coverage_factor_plot_",type,".pdf"), width = 10, height = 8)
+  ggplot2::ggsave(cov_factor_plot, filename=paste0("images/",score_name, "n/", "coverage_factor_plot_",type,".pdf"), width = 10, height = 8)
   
   
   all_data <- dplyr::left_join(spv_means, cov_means, 
@@ -468,7 +506,7 @@ if(synthetic_scenario){
   
   plot_2D <- ggplot2::ggplot(all_data, 
                              ggplot2::aes(x=mean_value_spv,y=mean_value_cov,
-                                  color = type)) +
+                                          color = type)) +
     ggplot2::geom_point() +
     ggplot2::facet_grid(rows = vars(mechanism), cols=vars(level), scales="fixed") +
     ggplot2::scale_color_viridis_d(option = "magma") +
@@ -481,11 +519,10 @@ if(synthetic_scenario){
   
   
 }else{
+  ggplot2::ggsave(spv_plot, 
+                  filename=paste0("images/", score_name, "spv_plot_",type,".pdf"), 
+                  width = 30, height = 15)
   ggplot2::ggsave(mean_width_plot, 
-                  filename=paste0("images/", score_name, n,"/", "width_boxplots_", type, ".pdf"), 
+                  filename=paste0("images/", score_name, "width_boxplots_", type, ".pdf"), 
                   width = 30, height = 15)
 }
-
-
-
-

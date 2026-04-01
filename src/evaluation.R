@@ -190,10 +190,13 @@ set_policy_value<- function(test_set, test,
   return(tmle.obj.test$psi)
 }
 
-bounds_set_policy_value <- function(test_set, test, QAW.reg.train, 
-                                         g.reg.train, ab, n_test = 100,
-                                         covariates = c("x1","x2"),
-                                         levels, m=5) {
+bounds_set_policy_value <- function(test_set, test, 
+                                    mod_,
+                                    treatment_name = "A",
+                                    outcome_name = "Y",
+                                    mod_ps, ab, n_test = 100,
+                                    covariates = c("x1","x2"),
+                                    levels, m=5) {
   
   n <- nrow(test)
   row_idx <- seq_len(n)
@@ -214,7 +217,7 @@ bounds_set_policy_value <- function(test_set, test, QAW.reg.train,
   
   ## ---- 2. Predict g once ----
   gAW.pred <- stats::predict(
-    g.reg.train,
+    mod_ps,
     newdata = test[, covariates, drop = FALSE],
     type = "prob"
   )
@@ -223,16 +226,16 @@ bounds_set_policy_value <- function(test_set, test, QAW.reg.train,
   ## ---- 3. Predict Q once for all actions ----
   base_newdata <- test[, covariates, drop = FALSE]
   
-  Q_all_actions <- sapply(seq_len(m), function(a) {
+  Q_all_actions <- sapply(levels, function(a) {
     newdata_temp <- base_newdata
-    newdata_temp$A <- factor(a, levels = seq_len(m))
-    stats::predict(QAW.reg.train, 
+    newdata_temp[, treatment_name] <- factor(a, levels = levels)
+    stats::predict(mod_, 
                    newdata = newdata_temp, 
                    type = "response")$pred
   })
   
   ## ---- 4. Compute result ----
-  Y_mat <- matrix(test$Y)
+  Y_mat <- matrix(test[, outcome_name])
   
   results <- unlist(
     parallel::mclapply(seq_len(n_test), function(p) {
@@ -240,7 +243,7 @@ bounds_set_policy_value <- function(test_set, test, QAW.reg.train,
       lin_idx <- row_idx + col_offset[d]
       
       SL.ODTR::tmle.d.fun(
-        A   = test$A,
+        A   = test[, treatment_name],
         Y   = Y_mat,
         d   = d,
         Qd  = Q_all_actions[lin_idx],

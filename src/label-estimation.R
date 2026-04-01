@@ -371,8 +371,14 @@ CV.risk_fun_one_fold = function(train_ind, test_ind){
                                SL.library=SL.library.nuisance, 
                                family = family)
   
-  experts <- expert_fit_predict(data.frame(X,A,Y)[train_ind,],
-                                data.frame(X,A,Y)[test_ind,], 
+  train_df <- data.frame(X,A,Y)[train_ind,] 
+  colnames(train_df) <- c(colnames(X), treatment_name, outcome_name)
+  
+  test_df <- data.frame(X,A,Y)[test_ind,]
+  colnames(test_df) <- c(colnames(X), treatment_name, outcome_name)
+  
+  experts <- expert_fit_predict(train_df,
+                                test_df, 
                                 covariates = covariates_name, 
                                 treatment_name = treatment_name,
                                 outcome_name = outcome_name, 
@@ -443,7 +449,7 @@ exponential_weights <- function(librarydoptFactorPredict, train, test,
                          SL.library = SL.library)
   potential_outcomes <- lapply(levels_A, function(val) {
     new_data <- test[, c(covariates_name, treatment_name)]
-    new_data$A <- factor(val, levels=levels_A)
+    new_data[, treatment_name] <- factor(val, levels=levels_A)
     predict.SuperLearner(mod_sl, newdata = new_data, onlySL = TRUE)$pred})
   
   loss_potential_outcomes <- -do.call(cbind, potential_outcomes)

@@ -78,9 +78,7 @@ if(synthetic_scenario){
                 type = random_rate[i]
               )
             }))
-}
 
-if(synthetic_scenario){
   data_true_all <- dplyr::bind_rows(
     data.frame(
       value = as.vector(SL.out$true_score),
