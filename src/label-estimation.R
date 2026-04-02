@@ -74,23 +74,17 @@ add_qlearner <- function(learners, name,
     valid_q_funcs <- c("q_glm", "q_rf", "q_xgboost", "q_sl")
     if (is.null(q_func) || !q_func %in% valid_q_funcs)
       stop("Unknown q_func '", q_func, "'. Choose from: ", paste(valid_q_funcs, collapse = ", "))
-    q_model  <- make_q_model(q_func,
-                             covariates   = covariates,
-                             sl_library   = sl_library,
-                             action_name  = action_name)
     qv_model <- make_q_model(q_func,
                              covariates   = covariates,
                              sl_library   = sl_library,
                              action_name  = action_name)
   } else {
-    q_model  <- NULL
     qv_model <- NULL
   }
   
   learners[[name]] <- list(name     = name,
                            type     = type,
                            q_func   = q_func,
-                           q_model  = q_model,
                            qv_model = qv_model, 
                            depth    = depth,
                            hybrid   = hybrid)
@@ -252,18 +246,20 @@ expert_fit_predict <- function(train, test, new = NULL,
       l_obj <- polle::policy_learn(type = "ql", cross_fit_g_models = FALSE)
       # policy optimization
       po <- l_obj(policy_data = pd_train, 
-                  q_models = list(learner$q_model), g_models = g_model)
+                  q_models = learner$qv_model, g_models = g_model)
       
     } else if (learner$type == "drql") {
       # policy learner (DR Q-learning)
       l_obj <- polle::policy_learn(
         type    = "drql",
-        control = polle::control_drql(qv_models = list(learner$qv_model)), 
-        cross_fit_g_models = FALSE)
+        control = polle::control_drql(qv_models = learner$qv_model), 
+        cross_fit_g_models = FALSE
+      )
       # policy optimization
-      po <- l_obj(policy_data = pd_train, 
-                  q_models = list(learner$qv_model), g_models = g_model)
-      
+      po <- l_obj(
+        policy_data = pd_train, 
+        q_models = learner$qv_model,
+        g_models = g_model)
     } else if (learner$type == "ptl") {
       # policy learner (tree-based)
       l_obj <- polle::policy_learn(
@@ -273,7 +269,7 @@ expert_fit_predict <- function(train, test, new = NULL,
         cross_fit_g_models = FALSE)
       # policy optimization
       po <- l_obj(policy_data = pd_train, 
-                  q_models = list(learner$q_model), g_models = g_model)
+                  q_models = list(learner$qv_model), g_models = g_model)
     }
     
     # Make polle predictions 

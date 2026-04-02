@@ -101,21 +101,23 @@ generate_data <- function(n, ncov=2, seed=NA, type=c("normal", "complex"), is_RC
     A <- t(stats::rmultinom(n, 1, rep(1/treatment_levels, treatment_levels)))
   }else{
     if(type=="normal"){
-      beta_high <- matrix(c(10,10,5,5,5), c(10,10,5,5,5), nrow=2, ncol=treatment_levels)
-      beta_low <- matrix(c(5,5,10,10,5), c(5,5,10,10,5), nrow=2, ncol=treatment_levels)
-      w <- 1/(1+exp(X[,1]+X[,2] - 0.5))
-      beta <- w*(X%*% beta_high) + (1-w)*(X%*%beta_low)
-      epsilon <- matrix(rnorm(nrow(X) * 5), nrow=n, ncol=5)
-      # Treatment assigment probabilities 
+      beta_low_vec  <- c(10,10,1,3,2)  # 1,2 high
+      beta_high_vec <- c(2,1,10,10,4)  # 3,4 low 
+      w <- plogis(X[,1] + X[,2] - 0.5)
+      beta <- (1 - w) * matrix(beta_low_vec,  nrow=nrow(X), ncol=5, byrow=TRUE) +
+        w * matrix(beta_high_vec, nrow=nrow(X), ncol=5, byrow=TRUE)
+      epsilon <- matrix(rnorm(nrow(X) * 5), nrow=nrow(X), ncol=5)
+      
       treatment_assignment <- beta + epsilon
-      probs <- plogis(treatment_assignment)
+      
+      probs <- exp(treatment_assignment - apply(treatment_assignment, 1, max))
       expit_treatment <- probs / rowSums(probs)
       
       A <- t(apply(expit_treatment, 1, function(p) rmultinom(1, 1, p)))
     }else{
-      beta_high <- matrix(c(5,10,5,5,5), c(5,10,5,5,5), nrow=2, ncol=treatment_levels)
-      beta_medium <- matrix(c(10,5,5,10,10), c(10,5,5,10,10), nrow=2, ncol=treatment_levels)
-      beta_low <- matrix(c(5,5,10,5,5), c(5,5,10,5,5), nrow=2, ncol=treatment_levels)
+      beta_high <- matrix(c(1,10,1,1,1), c(1,10,1,1,1), nrow=2, ncol=treatment_levels)
+      beta_medium <- matrix(c(10,1,1,10,10), c(10,1,1,10,10), nrow=2, ncol=treatment_levels)
+      beta_low <- matrix(c(1,1,10,1,1), c(1,1,10,1,1), nrow=2, ncol=treatment_levels)
       w_low  <- 1 / (1 + exp(X[, 1] + X[, 2] - 0.25))
       w_high <- 1 - (1 / (1 + exp(X[, 1] + X[, 2] - 0.75)))
       w_medium <- pmax(0, 1 - (w_low + w_high)) 

@@ -5,6 +5,11 @@ density_plot <- ggplot2::ggplot(data_toghether,
                                 ggplot2::aes(x = value, 
                                              color = as.factor(type))) +
   ggplot2::geom_density(linewidth = 1) +
+  ggplot2::geom_density(data = behavioral_data,
+                        ggplot2::aes(x = value),
+                        color = "green",
+                        linetype = "dashed",
+                        inherit.aes = FALSE, linewidth=1.2)+
   ggplot2::scale_color_viridis_d(option="magma")+
   ggplot2::facet_grid(rows=vars(mechanism),
                       cols=vars(model)) +
@@ -36,6 +41,9 @@ if(synthetic_scenario){
 ecdf_plot <- ggplot2::ggplot(data_toghether,
                              ggplot2::aes(x = value,
                                           color = as.factor(type))) +
+  ggplot2::stat_ecdf(data = behavioral_data, aes(x=value),
+                     color = "green",
+                     linetype = "dashed", linewidth=1.2, geom = "step")+
   ggplot2::scale_color_viridis_d(option="magma")+
   ggplot2::stat_ecdf(geom = "step", linewidth = 1) +
   ggplot2::facet_grid(rows=vars(mechanism), cols=vars(model), scales = "free") +
@@ -643,4 +651,54 @@ for (t in 1:dim(heatmaps_r)[5]){
   }
 }
 
+data_tilde_r <- matrix(0, ncol=3, nrow=length(alphas))
+if(synthetic_scenario){
+  data_true_r <- matrix(0, ncol=3, nrow=length(alphas))
+}
 
+for (i in seq_along(alphas)){
+  alpha <- alphas[i]
+  quant <- stats::quantile(SL.out$rate_scores_unweighted_cal[, 1], (1-alpha))
+  sl.quant <- stats::quantile(SL.out$rate_scores_sl_cal[, 1], (1-alpha))
+  exp.quant <- stats::quantile(SL.out$rate_scores_exp_cal[, 1], (1-alpha))
+  
+  rd_quant <- stats::quantile(SL.out$rate_scores_unweighted_cal[, length(random_rate)], (1-alpha))
+
+  if(synthetic_scenario){
+    true.quant <- stats::quantile(SL.out$true_score, (1-alpha))
+    
+    ru_true <- (quant -true.quant )/(quant - rd_quant)
+    rsl_true <- (sl.quant -true.quant )/(quant - rd_quant)
+    re_true <- (exp.quant -true.quant )/(quant - rd_quant)
+    data_true_r[i,] <- c(ru_true, rsl_true, re_true)
+  }
+  
+  Ftilde_quant <- stats::quantile(SL.out$rate_cal_labels_behavioral, (1-alpha)) 
+  ru <- (quant -Ftilde_quant)/(quant - rd_quant)
+  rsl <- (sl.quant -Ftilde_quant )/(quant - rd_quant)
+  re <- (exp.quant -Ftilde_quant )/(quant - rd_quant)
+  
+  data_tilde_r[i,] <- c(ru, rsl, re)
+}
+
+colnames(data_tilde_r) <- c("unweighted", "SL", "exponential")
+
+df_long <- data_tilde_r %>%
+  as.data.frame()  %>% 
+  mutate(level=alphas) %>% 
+  pivot_longer(, cols = -'level', values_to = "values") 
+  
+ggplot(df_long, aes(x=level, y=values, color=name))+
+  geom_point()+
+  geom_line()
+
+if(synthetic_scenario){
+  df_long_true <- data_true_r %>%
+    as.data.frame()  %>% 
+    mutate(level=alphas) %>% 
+    pivot_longer(, cols = -'level', values_to = "values") 
+  
+  ggplot(df_long_true, aes(x=level, y=values, color=name))+
+    geom_point()+
+    geom_line()
+}

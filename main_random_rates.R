@@ -25,6 +25,7 @@ for(i in 1:n_rate){
   }
 }
 
+SL.out$rate_cal_labels_behavioral <- margin_po[cbind(1:nrow(test), test[,treatment_name])]
 
 data_toghether <- dplyr::bind_rows(
   lapply(1:ncol(SL.out$rate_scores_unweighted_cal), function(i) {
@@ -51,6 +52,26 @@ data_toghether <- dplyr::bind_rows(
       type = random_rate[i]
     )
   }))
+
+behavioral_data <-  dplyr::bind_rows(
+data.frame(
+  value = SL.out$rate_cal_labels_behavioral,
+  model = "Estimated score",
+  mechanism = "Unweighted",
+  type = 0
+), 
+data.frame(
+  value = SL.out$rate_cal_labels_behavioral,
+  model = "Estimated score",
+  mechanism = "SL",
+  type = 0
+),
+data.frame(
+  value = SL.out$rate_cal_labels_behavioral,
+  model = "Estimated score",
+  mechanism = "Exp",
+  type = 0
+))
 
 if(synthetic_scenario){
   data_toghether<- dplyr::bind_rows(data_toghether,
