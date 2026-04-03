@@ -699,7 +699,7 @@ df_long <- data_tilde_r %>%
   mutate(level=alphas) %>% 
   pivot_longer(, cols = -'level', values_to = "values") 
   
-ggplot(df_long, aes(x=level, y=values, color=name))+
+plot_ftilde <- ggplot(df_long, aes(x=level, y=values, color=name))+
   geom_point()+
   geom_line()+ 
   geom_hline(yintercept = 1, 
@@ -707,17 +707,27 @@ ggplot(df_long, aes(x=level, y=values, color=name))+
              linetype="dashed")+
   ylim(c(-2,2))
 
+
 if(synthetic_scenario){
   df_long_true <- data_true_r %>%
     as.data.frame()  %>% 
     mutate(level=alphas) %>% 
     pivot_longer(, cols = -'level', values_to = "values") 
   
-  ggplot(df_long_true, aes(x=level, y=values, color=name))+
+  plot_true <- ggplot(df_long_true, aes(x=level, y=values, color=name))+
     geom_point()+
     geom_line()+
     geom_hline(yintercept = 1, 
                           color="red", 
                           linetype="dashed")+
     ylim(c(-2,2))
+  plot_r <- gridExtra::grid.arrange(plot_ftilde, plot_true, ncol=2)
+  
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, n, "/", "randomness_", type, ".pdf"),
+    plot_r, width = 30, height = 15)
+} else {
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, "randomness_", type, ".pdf"),
+    plot_ftilde, width = 30, height = 15)
 }
