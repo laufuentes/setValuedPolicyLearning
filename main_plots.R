@@ -35,11 +35,13 @@ if(synthetic_scenario){
   ggplot2::ggsave(density_plot, 
                   filename=paste0("images/",score_name, n, "/", "density_",type,".pdf"), 
                   width = 10, height = 8)
-} 
+} else{
+  ggplot2::ggsave(density_plot, 
+                  filename=paste0("images/",score_name,"density_",type,".pdf"), 
+                  width = 10, height = 8)
+  
+}
 
-ggplot2::ggsave(density_plot, 
-                filename=paste0("images/",score_name,"density_",type,".pdf"), 
-                width = 10, height = 8)
 
 # # remove for GIF
 # gganimate::anim_save(
@@ -515,7 +517,7 @@ if(synthetic_scenario){
       color = "Random Rate") +
     ggplot2::theme_minimal(base_size = 14)
   
-  ggplot2::ggsave(cov_factor_plot, filename=paste0("images/",score_name, "n/", "coverage_factor_plot_",type,".pdf"), width = 10, height = 8)
+  ggplot2::ggsave(cov_factor_plot, filename=paste0("images/",score_name, n, "/", "coverage_factor_plot_",type,".pdf"), width = 10, height = 8)
   
   
   all_data <- dplyr::left_join(spv_means, cov_means, 
@@ -550,7 +552,6 @@ if(synthetic_scenario){
   heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),5))
 }else{
   heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),4))
-  
 }
 
 ## train1 <- SL.out$df_obs[SL.out$folds[[1]],] # generate noisy labels 
@@ -563,7 +564,7 @@ treatment[cbind(1:nrow(treatment), c(train1[, treatment_name],
 model <- grf::regression_forest(
   X = cbind(rbind(train1, train2)[, covariates_name], treatment),
   Y = rbind(train1, train2)[, outcome_name])
-for(i in 1:length(alphas)){
+for(i in seq_along(alphas)){
   alpha <- alphas[i]
   for (r in 1:ncol(SL.out$rate_cal_labels_exp)){
     # unweighted
@@ -574,7 +575,7 @@ for(i in 1:length(alphas)){
                             factor(idx[, "row"], 
                                    levels = seq_len(nrow(binary_confidence_set))))
     
-    heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set) %>% as.matrix()
+    heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
     # SL 
     w.quantile <- stats::quantile(SL.out$rate_scores_sl_cal[,r], (1-alpha))
     w.binary_confidence_set <- ifelse(SL.out$new_scores<w.quantile, 1, 0)
@@ -583,7 +584,7 @@ for(i in 1:length(alphas)){
                               factor(w.idx[, "row"], 
                                      levels = seq_len(nrow(w.binary_confidence_set))))
     
-    heatmaps_r[,,i,r,2] <- heatmap_treatments(w.confidence_set)%>% as.matrix()
+    heatmaps_r[,,i,r,2] <- heatmap_treatments(w.confidence_set, levels_A)%>% as.matrix()
     # Exponential  
     exp.quantile <- stats::quantile(SL.out$rate_scores_exp_cal[,r], (1-alpha))
     exp.binary_confidence_set <- ifelse(SL.out$new_scores<exp.quantile, 1, 0)
@@ -591,7 +592,7 @@ for(i in 1:length(alphas)){
     exp.confidence_set <- split(exp.idx[, "col"], 
                                 factor(exp.idx[, "row"], 
                                        levels = seq_len(nrow(exp.binary_confidence_set))))
-    heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set)%>% as.matrix()
+    heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set, levels_A)%>% as.matrix()
     # uppest lower bound set 
   lowers <- uppers <- lowers_test <- uppers_test <- matrix(0, nrow=nrow(SL.out$df_new), ncol=m)
   z <- stats::qnorm(1 - alpha/2)
@@ -610,7 +611,7 @@ for(i in 1:length(alphas)){
   naive.confidence_set <- split(indices_naive[, "col"], 
                                 factor(indices_naive[, "row"],
                                        levels = seq_len(nrow(C_set_binary_naive))))  
-  heatmaps_r[,,i,r,4] <- heatmap_treatments(naive.confidence_set)%>% as.matrix()
+  heatmaps_r[,,i,r,4] <- heatmap_treatments(naive.confidence_set, levels_A = levels_A)%>% as.matrix()
   
   if(synthetic_scenario){
     # true 
@@ -621,7 +622,7 @@ for(i in 1:length(alphas)){
                                  factor(true_idx[, "row"], 
                                         levels = seq_len(nrow(true_binary_confidence_set))))
     
-    heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set)%>% as.matrix()
+    heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set, levels_A = levels_A)%>% as.matrix()
   }
   }
   print(i)
@@ -701,7 +702,11 @@ df_long <- data_tilde_r %>%
   
 ggplot(df_long, aes(x=level, y=values, color=name))+
   geom_point()+
-  geom_line()
+  geom_line()+ 
+  geom_hline(yintercept = 1, 
+             color="red", 
+             linetype="dashed")+
+  ylim(c(-2,2))
 
 if(synthetic_scenario){
   df_long_true <- data_true_r %>%
@@ -711,5 +716,9 @@ if(synthetic_scenario){
   
   ggplot(df_long_true, aes(x=level, y=values, color=name))+
     geom_point()+
-    geom_line()
+    geom_line()+
+    geom_hline(yintercept = 1, 
+                          color="red", 
+                          linetype="dashed")+
+    ylim(c(-2,2))
 }

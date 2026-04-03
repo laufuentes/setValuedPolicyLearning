@@ -106,18 +106,21 @@ make_smaller_bigger_block <- function(mech_index, mech_name, array_a, alpha_vec,
 }
 
 
-heatmap_treatments <- function(confidence_set){
+heatmap_treatments <- function(confidence_set, levels_A){
   df <- tibble(
     row_id = 1:length(confidence_set), 
     val = confidence_set
   ) %>%
-    unnest(val) %>%        # Now it expands to 'long' format
-    mutate(exists = 1) %>%
+    unnest(val, keep_empty = TRUE) %>% 
+    mutate(
+      val = factor(val, levels = levels_A),
+      exists = 1
+    ) %>%
     pivot_wider(
       names_from = val, 
       values_from = exists, 
-      values_fill = 0
-    ) %>%
-    select(-row_id)
+      values_fill = 0,
+      names_expand = TRUE 
+    ) %>% select(any_of(levels_A))
   return(df)
-} 
+}
