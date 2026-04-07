@@ -453,15 +453,13 @@ mean_width_plot <- ggplot2::ggplot(data=mean_width_data,
   ggplot2::labs(title="Mean width", x = "Level", y = "Coverage") +
   ggplot2::theme_minimal()
 
-if(synthetic_scenario){
-}else{
-  coverage_A_data <- expand.grid(
+
+coverage_A_data <- expand.grid(
     level      = alphas,
     randomness = random_rate,
     expert     = c("Unweighted", "SL", "Exp", "Naive")
   ) %>%
     mutate(value = as.vector(coverage_A))
-}
 
 coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
                                    ggplot2::aes(x = level, y = value, 
@@ -473,6 +471,31 @@ coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data,
   ggplot2::labs(x = "Level", y = "Coverage real treatment") +
   ggplot2::theme_minimal()
 
+names_experts <- c("Unweighted", "SL", "Exp", "Naive")
+if(synthetic_scenario){
+  names_experts <- c(names_experts, "True")
+}
+
+for (t in 1:dim(heatmaps_r)[5]){
+  plots_completed <- list()
+  for (i in 1:dim(heatmaps_r)[3]){
+    plots <- list()
+    for (r in 1:dim(heatmaps_r)[4]){
+      file <- as.data.frame(heatmaps_r[,,i,r,t]) %>%
+        mutate(row_id = row_number()) %>%
+        pivot_longer(cols = -row_id, names_to = "column_m", values_to = "value")
+      plots[[r]] <- ggplot(file, aes(x = column_m, y = row_id, fill = factor(value))) +
+        geom_tile() +
+        theme_minimal() +
+        labs(title = paste0("r: ", random_rate[r]),
+             x = "Treatment (m)",
+             y = "Observations",
+             fill = "Present")
+    }
+    plots_completed[[i]] <- gridExtra::arrangeGrob(grobs = plots, nrow = 1, ncol = dim(heatmaps_r)[4], top = paste0("Alpha = ", alphas[i]))
+  }
+  multi_page <- marrangeGrob(grobs = plots_completed, nrow = 1, ncol = 1)
+}
 
 if(synthetic_scenario){
   ggplot2::ggsave(spv_plot, 
@@ -595,6 +618,10 @@ if(synthetic_scenario){
     filename = paste0("images/", score_name, n, "/", "Coverage_A_", type, ".pdf"),
     coverage_A_plot, width = 30, height = 15)
   
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, n, "/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
+    multi_page, width = 30, height = 15)
+  
 }else{
   ggplot2::ggsave(spv_plot, 
                   filename=paste0("images/", score_name, "spv_plot_",type,".pdf"), 
@@ -605,6 +632,10 @@ if(synthetic_scenario){
   ggplot2::ggsave(
     filename = paste0("images/", score_name, "Coverage_A_", type, ".pdf"),
     coverage_A_plot, width = 30, height = 15)
+  
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, "Heatmap_", names_experts[t], "_", type, ".pdf"),
+    multi_page, width = 30, height = 15)
 }
 
 if(synthetic_scenario){
