@@ -48,7 +48,7 @@ if(synthetic_scenario){
   # Synthetic data generation 
   
   ## Training observations 
-  n<- 18*1e3  # number of observations for training CP.
+  n<- 6*1e3  # number of observations for training CP.
   is_RCT <- FALSE
   exp <- generate_data(n, type=type, is_RCT=is_RCT)  
   SL.out$df_obs <- exp[[1]] # extract observational data 
@@ -284,7 +284,7 @@ margin_po <-  margin_score(potential_outcomes_test) # score for all potential ou
 #### New data 
 potential_outcomes_new <- do.call(cbind,lapply(1:m, function(val) {
   new_data <- SL.out$df_new[, c(covariates_name, treatment_name)]
-  new_data[,treatment_name] <- factor(val, levels=1:m)
+  new_data[,treatment_name] <- factor(val, levels=levels_A)
   SuperLearner::predict.SuperLearner(SL.out$QAW.reg.train, newdata = new_data)$pred}))
 
 SL.out$new_scores <- margin_score(potential_outcomes_new)  # score for all potential outcomes from new data
