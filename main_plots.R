@@ -549,9 +549,12 @@ if(synthetic_scenario){
 
 if(synthetic_scenario){
   heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),5))
-}else{
+  coverage_A <-  array(0, dim=c(length(alphas),ncol(SL.out$rate_cal_labels_exp),5))
+  }else{
   heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),4))
-}
+  coverage_A <-  array(0, dim=c(length(alphas),ncol(SL.out$rate_cal_labels_exp),4))
+  
+  }
 
 ## train1 <- SL.out$df_obs[SL.out$folds[[1]],] # generate noisy labels 
 ## train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
@@ -573,7 +576,7 @@ for(i in seq_along(alphas)){
     confidence_set <- split(idx[, "col"], 
                             factor(idx[, "row"], 
                                    levels = seq_len(nrow(binary_confidence_set))))
-    
+    coverage_A[i,r,1] <- coverage_relaxed(test[,treatment_name], pred_set = confidence_set)
     heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
     # SL 
     w.quantile <- stats::quantile(SL.out$rate_scores_sl_cal[,r], (1-alpha))
@@ -583,6 +586,7 @@ for(i in seq_along(alphas)){
                               factor(w.idx[, "row"], 
                                      levels = seq_len(nrow(w.binary_confidence_set))))
     
+    coverage_A[i,r,2] <- coverage_relaxed(test[,treatment_name], pred_set = w.confidence_set)
     heatmaps_r[,,i,r,2] <- heatmap_treatments(w.confidence_set, levels_A)%>% as.matrix()
     # Exponential  
     exp.quantile <- stats::quantile(SL.out$rate_scores_exp_cal[,r], (1-alpha))
@@ -591,6 +595,7 @@ for(i in seq_along(alphas)){
     exp.confidence_set <- split(exp.idx[, "col"], 
                                 factor(exp.idx[, "row"], 
                                        levels = seq_len(nrow(exp.binary_confidence_set))))
+    coverage_A[i,r,3] <- coverage_relaxed(test[,treatment_name], pred_set = exp.confidence_set)
     heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set, levels_A)%>% as.matrix()
     # uppest lower bound set 
   lowers <- uppers <- lowers_test <- uppers_test <- matrix(0, nrow=nrow(SL.out$df_new), ncol=m)
@@ -610,6 +615,7 @@ for(i in seq_along(alphas)){
   naive.confidence_set <- split(indices_naive[, "col"], 
                                 factor(indices_naive[, "row"],
                                        levels = seq_len(nrow(C_set_binary_naive))))  
+  coverage_A[i,r,4] <- coverage_relaxed(test[,treatment_name], pred_set = naive.confidence_set)
   heatmaps_r[,,i,r,4] <- heatmap_treatments(naive.confidence_set, levels_A = levels_A)%>% as.matrix()
   
   if(synthetic_scenario){
@@ -620,7 +626,7 @@ for(i in seq_along(alphas)){
     true_confidence_set <- split(true_idx[, "col"], 
                                  factor(true_idx[, "row"], 
                                         levels = seq_len(nrow(true_binary_confidence_set))))
-    
+    coverage_A[i,r,5] <- coverage_relaxed(test[,treatment_name], pred_set = true_confidence_set)
     heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set, levels_A = levels_A)%>% as.matrix()
   }
   }
@@ -662,6 +668,37 @@ for (t in 1:dim(heatmaps_r)[5]){
   }
 }
 
+
+
+coverage_A_data <- expand.grid(
+  level      = alphas,
+  randomness = random_rate,
+  expert     = c("Unweighted", "SL", "Exp", "Naive","True")
+) %>%
+  mutate(value = as.vector(coverage_A))
+
+
+coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
+                                   ggplot2::aes(x = level, y = value, 
+                                                group = randomness, color = factor(randomness)))+
+  ggplot2::geom_line(aes(group=randomness))+
+  ggplot2::geom_point(aes(group=randomness))+
+  ggplot2::scale_color_viridis_d(option="magma")+
+  ggplot2::facet_grid(rows=vars(expert)) +
+  ggplot2::labs(x = "Level", y = "Coverage real treatment") +
+  ggplot2::theme_minimal()
+
+
+if(synthetic_scenario){
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, n, "/", "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
+} else {
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
+}
+
 data_tilde_r <- matrix(0, ncol=3, nrow=length(alphas))
 if(synthetic_scenario){
   data_true_r <- matrix(0, ncol=3, nrow=length(alphas))
@@ -674,7 +711,8 @@ for (i in seq_along(alphas)){
   exp.quant <- stats::quantile(SL.out$rate_scores_exp_cal[, 1], (1-alpha))
   
   rd_quant <- stats::quantile(SL.out$rate_scores_unweighted_cal[, length(random_rate)], (1-alpha))
-
+  
+  
   if(synthetic_scenario){
     true.quant <- stats::quantile(SL.out$true_score, (1-alpha))
     
@@ -709,6 +747,8 @@ plot_ftilde <- ggplot(df_long, aes(x=level, y=values, color=name))+
 
 
 if(synthetic_scenario){
+  colnames(data_true_r) <- c("unweighted", "SL", "exponential")
+  
   df_long_true <- data_true_r %>%
     as.data.frame()  %>% 
     mutate(level=alphas) %>% 
@@ -731,3 +771,4 @@ if(synthetic_scenario){
     filename = paste0("images/", score_name, "randomness_", type, ".pdf"),
     plot_ftilde, width = 30, height = 15)
 }
+
