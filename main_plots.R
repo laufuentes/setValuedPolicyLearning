@@ -83,11 +83,19 @@ if(synthetic_scenario){
                                                          ncol(SL.out$rate_cal_labels_exp)))
   cov_unif<- spv<- array(0, dim=c(length(alphas), n_test, 5,
                                   ncol(SL.out$rate_cal_labels_exp)))
+  heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),5))
+  coverage_A <-  array(0, dim=c(length(alphas),ncol(SL.out$rate_cal_labels_exp),5))
 } else {
   mean_width <- array(0, dim=c(length(alphas), 4,
                                ncol(SL.out$rate_cal_labels_exp)))
   spv<- array(0, dim=c(length(alphas), n_test, 4,
                        ncol(SL.out$rate_cal_labels_exp)))
+  heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), 
+                               m, length(alphas),
+                               ncol(SL.out$rate_cal_labels_exp),
+                               4))
+  coverage_A <-  array(0, dim=c(length(alphas),
+                                ncol(SL.out$rate_cal_labels_exp),4))
 }
 
 # For uppest-lower bound 
@@ -117,6 +125,8 @@ for(i in 1:length(alphas)){
                                           covariates = covariates_name,
                                           mod_=SL.out$QAW.reg.train,
                                           mod_ps = SL.out$g.reg.train)
+    coverage_A[i,r,1] <- coverage_relaxed(test[,treatment_name], pred_set = confidence_set)
+    heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
     
     # SL 
     w.quantile <- stats::quantile(SL.out$rate_scores_sl_cal[,r], (1-alpha))
@@ -135,6 +145,8 @@ for(i in 1:length(alphas)){
                                           mod_=SL.out$QAW.reg.train,
                                           mod_ps = SL.out$g.reg.train)
     
+    coverage_A[i,r,2] <- coverage_relaxed(test[,treatment_name], pred_set = w.confidence_set)
+    heatmaps_r[,,i,r,2] <- heatmap_treatments(w.confidence_set, levels_A) %>% as.matrix()
     # Exponential  
     exp.quantile <- stats::quantile(SL.out$rate_scores_exp_cal[,r], (1-alpha))
     exp.binary_confidence_set <- ifelse(SL.out$new_scores<exp.quantile, 1, 0)
@@ -151,6 +163,8 @@ for(i in 1:length(alphas)){
                                           covariates = covariates_name,
                                           mod_=SL.out$QAW.reg.train,
                                           mod_ps = SL.out$g.reg.train)
+    coverage_A[i,r,3] <- coverage_relaxed(test[,treatment_name], pred_set = exp.confidence_set)
+    heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set, levels_A) %>% as.matrix()
     if(synthetic_scenario){
       # Unweighted 
       cov_vec[i,1,r]<- coverage(true_set = SL.out$optimal_policy_new, 
@@ -200,7 +214,8 @@ for(i in 1:length(alphas)){
                                        covariates = covariates_name,
                                        mod_=SL.out$QAW.reg.train,
                                        mod_ps = SL.out$g.reg.train)
-  
+  coverage_A[i,r,4] <- coverage_relaxed(test[,treatment_name], pred_set = naive.confidence_set)
+  heatmaps_r[,,i,r,4] <- heatmap_treatments(naive.confidence_set, levels_A) %>% as.matrix()
   if(synthetic_scenario){
     # uppest-lower bound set  
     cov_vec[i,4,]<- coverage(true_set = SL.out$optimal_policy_new, 
@@ -231,6 +246,9 @@ for(i in 1:length(alphas)){
                                          covariates = covariates_name,
                                          mod_=SL.out$QAW.reg.train,
                                          mod_ps = SL.out$g.reg.train)
+    
+    coverage_A[i,r,5] <- coverage_relaxed(test[,treatment_name], pred_set = true_confidence_set)
+    heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set, levels_A) %>% as.matrix()
   }
   
   print(i)
@@ -239,9 +257,9 @@ for(i in 1:length(alphas)){
 if(synthetic_scenario){
   results <- list(mean_width= mean_width,
                   cov_vec=cov_vec, cov_relaxed=cov_relaxed, 
-                  cov_unif=cov_unif, spv=spv)
+                  cov_unif=cov_unif, spv=spv,heatmaps_r=heatmaps_r, coverage_A=coverage_A )
 } else{
-  results <- list(mean_width= mean_width, spv=spv)
+  results <- list(mean_width= mean_width, spv=spv, heatmaps_r=heatmaps_r, coverage_A=coverage_A)
 }
 
 saveRDS(object = results, file = paste0("experts_pred/", score_name, 
@@ -435,6 +453,25 @@ mean_width_plot <- ggplot2::ggplot(data=mean_width_data,
   ggplot2::labs(title="Mean width", x = "Level", y = "Coverage") +
   ggplot2::theme_minimal()
 
+if(synthetic_scenario){
+}else{
+  coverage_A_data <- expand.grid(
+    level      = alphas,
+    randomness = random_rate,
+    expert     = c("Unweighted", "SL", "Exp", "Naive")
+  ) %>%
+    mutate(value = as.vector(coverage_A))
+}
+
+coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
+                                   ggplot2::aes(x = level, y = value, 
+                                                group = randomness, color = factor(randomness)))+
+  ggplot2::geom_line(aes(group=randomness))+
+  ggplot2::geom_point(aes(group=randomness))+
+  ggplot2::scale_color_viridis_d(option="magma")+
+  ggplot2::facet_grid(rows=vars(expert)) +
+  ggplot2::labs(x = "Level", y = "Coverage real treatment") +
+  ggplot2::theme_minimal()
 
 
 if(synthetic_scenario){
@@ -537,6 +574,26 @@ if(synthetic_scenario){
     ) +
     ggplot2::theme_minimal(base_size = 14)
   
+  coverage_A_data <- expand.grid(
+    level      = alphas,
+    randomness = random_rate,
+    expert     = c("Unweighted", "SL", "Exp", "Naive","True")
+  ) %>%
+    mutate(value = as.vector(coverage_A))
+  
+  coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
+                                     ggplot2::aes(x = level, y = value, 
+                                                  group = randomness, color = factor(randomness)))+
+    ggplot2::geom_line(aes(group=randomness))+
+    ggplot2::geom_point(aes(group=randomness))+
+    ggplot2::scale_color_viridis_d(option="magma")+
+    ggplot2::facet_grid(rows=vars(expert)) +
+    ggplot2::labs(x = "Level", y = "Coverage real treatment") +
+    ggplot2::theme_minimal()
+  
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, n, "/", "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
   
 }else{
   ggplot2::ggsave(spv_plot, 
@@ -545,6 +602,9 @@ if(synthetic_scenario){
   ggplot2::ggsave(mean_width_plot, 
                   filename=paste0("images/", score_name, "width_boxplots_", type, ".pdf"), 
                   width = 30, height = 15)
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
 }
 
 if(synthetic_scenario){
@@ -553,8 +613,7 @@ if(synthetic_scenario){
   }else{
   heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_exp),4))
   coverage_A <-  array(0, dim=c(length(alphas),ncol(SL.out$rate_cal_labels_exp),4))
-  
-  }
+}
 
 ## train1 <- SL.out$df_obs[SL.out$folds[[1]],] # generate noisy labels 
 ## train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
@@ -633,7 +692,45 @@ for(i in seq_along(alphas)){
   print(i)
 }
 
-names_experts <- c("unweighted", "SL", "Exp", "Naive")
+if(synthetic_scenario){
+  coverage_A_data <- expand.grid(
+    level      = alphas,
+    randomness = random_rate,
+    expert     = c("Unweighted", "SL", "Exp", "Naive","True")
+  ) %>%
+    mutate(value = as.vector(coverage_A))
+}else{
+  coverage_A_data <- expand.grid(
+    level      = alphas,
+    randomness = random_rate,
+    expert     = c("Unweighted", "SL", "Exp", "Naive")
+  ) %>%
+    mutate(value = as.vector(coverage_A))
+}
+
+coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
+                                   ggplot2::aes(x = level, y = value, 
+                                                group = randomness, color = factor(randomness)))+
+  ggplot2::geom_line(aes(group=randomness))+
+  ggplot2::geom_point(aes(group=randomness))+
+  ggplot2::scale_color_viridis_d(option="magma")+
+  ggplot2::facet_grid(rows=vars(expert)) +
+  ggplot2::labs(x = "Level", y = "Coverage real treatment") +
+  ggplot2::theme_minimal()
+
+
+if(synthetic_scenario){
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, n, "/", "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
+} else {
+  ggplot2::ggsave(
+    filename = paste0("images/", score_name, "Coverage_A_", type, ".pdf"),
+    coverage_A_plot, width = 30, height = 15)
+}
+
+
+names_experts <- c("Unweighted", "SL", "Exp", "Naive")
 if(synthetic_scenario){
   names_experts <- c(names_experts, "True")
 }
@@ -666,37 +763,6 @@ for (t in 1:dim(heatmaps_r)[5]){
       filename = paste0("images/", score_name, "Heatmap_", names_experts[t], "_", type, ".pdf"),
       multi_page, width = 30, height = 15)
   }
-}
-
-
-
-coverage_A_data <- expand.grid(
-  level      = alphas,
-  randomness = random_rate,
-  expert     = c("Unweighted", "SL", "Exp", "Naive","True")
-) %>%
-  mutate(value = as.vector(coverage_A))
-
-
-coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data, 
-                                   ggplot2::aes(x = level, y = value, 
-                                                group = randomness, color = factor(randomness)))+
-  ggplot2::geom_line(aes(group=randomness))+
-  ggplot2::geom_point(aes(group=randomness))+
-  ggplot2::scale_color_viridis_d(option="magma")+
-  ggplot2::facet_grid(rows=vars(expert)) +
-  ggplot2::labs(x = "Level", y = "Coverage real treatment") +
-  ggplot2::theme_minimal()
-
-
-if(synthetic_scenario){
-  ggplot2::ggsave(
-    filename = paste0("images/", score_name, n, "/", "Coverage_A_", type, ".pdf"),
-    coverage_A_plot, width = 30, height = 15)
-} else {
-  ggplot2::ggsave(
-    filename = paste0("images/", score_name, "Coverage_A_", type, ".pdf"),
-    coverage_A_plot, width = 30, height = 15)
 }
 
 data_tilde_r <- matrix(0, ncol=3, nrow=length(alphas))
