@@ -161,37 +161,42 @@ coverage_relaxed <- function(true_set, pred_set, levels=1:5){
   mean(coverage)
 }
 
-set_policy_value<- function(test_set, test, 
-                            QAW.reg.train, g.reg.train, 
+policy_value_tmle<- function(random_policy, test, 
+                            mod_y, mod_ps, 
                             ab, covariates=c("x1","x2"), 
+                            treatment_name = "A", outcome_name="Y",
                             family="gaussian", levels){
-  random_policy <- apply(data.frame(1:nrow(test)), 1, 
-                         function(i)if(length(test_set[[i]])>0){
-                           sample(test_set[[i]],1)
-                           }else{sample(levels,1)})
-  gAW.pred = stats::predict(g.reg.train,
-                            newdata = data.frame(test[,covariates]), 
-                            type = "prob")
+  ## ---- 2. Predict g once ----
+  gAW.pred <- stats::predict(
+    mod_ps,
+    newdata = test[, covariates, drop = FALSE],
+    type = "prob"
+  )
   gAW_bounded <- pmax(gAW.pred, 0.01)
   
-  newdata_temp <- data.frame(test[,covariates[1:2]],
-                             A = factor(random_policy, 
-                                        levels=levels))
-  Qd.test = stats::predict(QAW.reg.train, 
-                           newdata = newdata_temp, 
-                           type = "response")$pred
+  ## ---- 3. Predict Q once for all actions ----
+  base_newdata <- test[, covariates, drop = FALSE]
+  Q_all_actions <- sapply(levels, function(a) {
+    newdata_temp <- base_newdata
+    newdata_temp[, treatment_name] <- factor(a, levels = levels)
+    stats::predict(mod_y, 
+                   newdata = newdata_temp, 
+                   type = "response")$pred
+  })
   
-  tmle.obj.test = SL.ODTR::tmle.d.fun(A = test$A, 
-                                      Y = matrix(test$Y),
+  ## ---- 4. Compute result ----
+  Y_mat <- matrix(test[, outcome_name])
+  tmle.obj.test = SL.ODTR::tmle.d.fun(A = test[,treatment_name], 
+                                      Y = Y_mat,
                                       d = random_policy, 
-                                      Qd = Qd.test, 
+                                      Qd =  Q_all_actions[cbind(1:nrow(test),random_policy)], 
                                       gAW = gAW_bounded[cbind(1:nrow(test),random_policy)], 
                                       ab = ab)
   return(tmle.obj.test$psi)
 }
 
 bounds_set_policy_value <- function(test_set, test, 
-                                    mod_,
+                                    mod_y,
                                     treatment_name = "A",
                                     outcome_name = "Y",
                                     mod_ps, ab, n_test = 100,
@@ -229,7 +234,7 @@ bounds_set_policy_value <- function(test_set, test,
   Q_all_actions <- sapply(levels, function(a) {
     newdata_temp <- base_newdata
     newdata_temp[, treatment_name] <- factor(a, levels = levels)
-    stats::predict(mod_, 
+    stats::predict(mod_y, 
                    newdata = newdata_temp, 
                    type = "response")$pred
   })

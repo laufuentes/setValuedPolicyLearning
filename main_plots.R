@@ -258,12 +258,16 @@ if(synthetic_scenario){
   results <- list(mean_width= mean_width,
                   cov_vec=cov_vec, cov_relaxed=cov_relaxed, 
                   cov_unif=cov_unif, spv=spv,heatmaps_r=heatmaps_r, coverage_A=coverage_A )
+  
+  saveRDS(object = results, file = paste0("experts_pred/", score_name,
+                                          "plot_results_", type, "_", n, ".rds"))
+  
 } else{
   results <- list(mean_width= mean_width, spv=spv, heatmaps_r=heatmaps_r, coverage_A=coverage_A)
+  
+  saveRDS(object = results, file = paste0("experts_pred/", score_name, 
+                                          "plot_results_", type,  ".rds"))
 }
-
-saveRDS(object = results, file = paste0("experts_pred/", score_name, 
-                                        "plot_results_", type,  ".rds"))
 
 #results <- readRDS(paste0("experts_pred/", score_name, 
 #                          "plot_results_", type, ".rds"))

@@ -49,7 +49,7 @@ if(synthetic_scenario){
   
   ## Training observations 
   n<- 12*1e3  # number of observations for training CP.
-  is_RCT <- FALSE
+  is_RCT <- TRUE
   exp <- generate_data(n, type=type, is_RCT=is_RCT)  
   SL.out$df_obs <- exp[[1]] # extract observational data 
   df_complete <- exp[[2]] # extract complete data (unavailable in real scenarios)
