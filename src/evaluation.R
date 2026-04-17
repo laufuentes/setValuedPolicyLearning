@@ -201,9 +201,10 @@ bounds_set_policy_value <- function(test_set, test,
                                     outcome_name = "Y",
                                     mod_ps, ab, n_test = 100,
                                     covariates = c("x1","x2"),
-                                    levels, m=5) {
+                                    levels) {
   
   n <- nrow(test)
+  m <-length(levels)
   row_idx <- seq_len(n)
   col_offset <- (0:(m - 1)) * n
   
@@ -255,6 +256,41 @@ bounds_set_policy_value <- function(test_set, test,
         gAW = gAW_bounded[lin_idx],
         ab  = ab)$psi
     }, mc.cores = parallel::detectCores())
+  )
+  
+  results
+}
+
+oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
+                                    treatment_name = "A",
+                                    outcome_name = "Y",
+                                     n_test = 100,
+                                    covariates = c("x1","x2"),
+                                    levels) {
+  
+  n <- nrow(test)
+  m<- length(levels)
+  row_idx <- seq_len(n)
+  col_offset <- (0:(m - 1)) * n
+  
+  ## ---- 1. FAST policy sampling ----
+  random_policy <- matrix(NA_integer_, n, n_test)
+  
+  for (i in seq_len(n)) {
+    allowed <- test_set[[i]]
+    
+    if (length(allowed) > 0) {
+      random_policy[i, ] <- sample(allowed, n_test, replace = TRUE)
+    } else {
+      random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
+    }
+  }
+
+  results <- unlist(
+    parallel::mclapply(seq_len(n_test), function(p) {
+      d <- random_policy[, p]
+      mean(test_potential_outcome[cbind(1:n,d)])
+      }, mc.cores = parallel::detectCores())
   )
   
   results

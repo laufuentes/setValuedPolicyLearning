@@ -48,19 +48,22 @@ if(synthetic_scenario){
   # Synthetic data generation 
   
   ## Training observations 
-  n<- 6*1e3  # number of observations for training CP.
-  is_RCT <- TRUE
-  ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
+  n<- 12*1e3  # number of observations for training CP.
+  is_RCT <- FALSE
+  RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
   exp <- generate_data(n, type=type, is_RCT=is_RCT)  
   SL.out$df_obs <- exp[[1]] # extract observational data 
   df_complete <- exp[[2]] # extract complete data (unavailable in real scenarios)
   SL.out$optimal_policy <- exp[[3]] # extract optimal policy (unavailable in real scenarios)
-
+  SL.out$potential_outcomes <- df_complete %>% select(starts_with("Potential_outcomes."))
+  
   ### Test observations 
   exp_new_sample <- generate_data(n/2, type=type) # generate test observations 
   SL.out$df_new_sample <- exp_new_sample[[1]]  # extract observational data 
   SL.out$optimal_policy_new <- exp_new_sample[[3]] # extract optimal policy (unavailable in real scenarios)
-}else{
+  SL.out$potential_outcomes <- exp_new_sample[[2]] %>% select(starts_with("Potential_outcomes."))
+  
+  }else{
   # Load real data 
   all_data <- NULL #LOAD DATA 
   
@@ -141,6 +144,7 @@ train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
 test <-  SL.out$df_obs[SL.out$folds[[3]],] # calibration 
 if(synthetic_scenario){
   optimal_policy_test <- SL.out$optimal_policy[SL.out$folds[[3]]]
+  potential_outcomes_test <- df_complete[SL.out$folds[[3]],] %>% select(starts_with("Potential_outcomes."))
 }
 
 # ── 1) Generate noisy labels (i.e. estimates of (A*,X)) ───────────────────────
@@ -311,9 +315,10 @@ if(synthetic_scenario){
 source("main_random_rates.R")
 if(synthetic_scenario){
   saveRDS(object = SL.out, file = paste0("experts_pred/",score_name, RCT_file,"_", type, "_",n,".rds"))
-  
 }else{
   saveRDS(object = SL.out, file = paste0("experts_pred/",score_name,"_", type, "_",n,".rds"))
-  
 }
 source("main_plots.R")
+#if(synthetic_scenario){
+#  source("synthetic_data_plots.R")
+#}

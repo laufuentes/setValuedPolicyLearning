@@ -114,14 +114,7 @@ for(i in 1:length(alphas)){
                                    levels = seq_len(nrow(binary_confidence_set))))
     
     mean_width[i,1,r]<- width(pred_set = confidence_set)
-    spv[i,,1,r]<- bounds_set_policy_value(confidence_set, ab = ab,
-                                          test= SL.out$df_new, levels=levels_A,
-                                          treatment_name = treatment_name,
-                                          outcome_name = outcome_name,
-                                          covariates = covariates_name,
-                                          mod_y=SL.out$QAW.reg.train,
-                                          mod_ps = SL.out$g.reg.train)
-    coverage_A[i,r,1] <- coverage_relaxed(test[,treatment_name], pred_set = confidence_set)
+    #coverage_A[i,r,1] <- coverage_relaxed(test[,treatment_name], pred_set = confidence_set)
     heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
     
     # SL 
@@ -133,15 +126,9 @@ for(i in 1:length(alphas)){
                                      levels = seq_len(nrow(w.binary_confidence_set))))
     
     mean_width[i,2,r]<- width(pred_set = w.confidence_set)
-    spv[i,,2,r]<- bounds_set_policy_value(w.confidence_set, ab = ab,
-                                          test= SL.out$df_new, levels=levels_A,
-                                          treatment_name = treatment_name,
-                                          outcome_name = outcome_name,
-                                          covariates = covariates_name,
-                                          mod_y=SL.out$QAW.reg.train,
-                                          mod_ps = SL.out$g.reg.train)
     
-    coverage_A[i,r,2] <- coverage_relaxed(test[,treatment_name], pred_set = w.confidence_set)
+    
+    #coverage_A[i,r,2] <- coverage_relaxed(test[,treatment_name], pred_set = w.confidence_set)
     heatmaps_r[,,i,r,2] <- heatmap_treatments(w.confidence_set, levels_A) %>% as.matrix()
     # Exponential  
     exp.quantile <- stats::quantile(SL.out$rate_scores_exp_cal[,r], (1-alpha))
@@ -152,17 +139,17 @@ for(i in 1:length(alphas)){
                                        levels = seq_len(nrow(exp.binary_confidence_set))))
     
     mean_width[i,3,r]<- width(pred_set = exp.confidence_set)
-    spv[i,,3,r]<- bounds_set_policy_value(exp.confidence_set, ab = ab,
-                                          test= SL.out$df_new, levels=levels_A,
-                                          treatment_name = treatment_name,
-                                          outcome_name = outcome_name,
-                                          covariates = covariates_name,
-                                          mod_y=SL.out$QAW.reg.train,
-                                          mod_ps = SL.out$g.reg.train)
-    coverage_A[i,r,3] <- coverage_relaxed(test[,treatment_name], pred_set = exp.confidence_set)
+    
+    #coverage_A[i,r,3] <- coverage_relaxed(test[,treatment_name], pred_set = exp.confidence_set)
     heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set, levels_A) %>% as.matrix()
     if(synthetic_scenario){
       # Unweighted 
+      spv[i,,1,r]<- oracular_set_policy_value(confidence_set, test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            test_potential_outcome= SL.out$potential_outcomes)
+      
       cov_vec[i,1,r]<- coverage(true_set = SL.out$optimal_policy_new, 
                                 pred_set = confidence_set)
       cov_relaxed[i,1,r]<- coverage_relaxed(true_set = SL.out$optimal_policy_new, 
@@ -170,6 +157,11 @@ for(i in 1:length(alphas)){
       cov_unif[i,,1,r]<- replicate(n_test,coverage_unif(SL.out$optimal_policy_new, 
                                                         pred_set=confidence_set))
       # SL 
+      spv[i,,2,r]<- oracular_set_policy_value(w.confidence_set, test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            test_potential_outcome=SL.out$potential_outcomes)
       cov_vec[i,2,r]<- coverage(true_set = SL.out$optimal_policy_new, 
                                 pred_set = w.confidence_set)
       cov_relaxed[i,2,r]<- coverage_relaxed(true_set = SL.out$optimal_policy_new, 
@@ -183,6 +175,35 @@ for(i in 1:length(alphas)){
                                             pred_set = exp.confidence_set)
       cov_unif[i,,3,r]<- replicate(n_test,coverage_unif(SL.out$optimal_policy_new,
                                                         pred_set = exp.confidence_set))
+      spv[i,,3,r]<- oracular_set_policy_value(exp.confidence_set,test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            test_potential_outcome=SL.out$potential_outcomes)
+    }else{
+      spv[i,,1,r]<- bounds_set_policy_value(confidence_set, ab = ab,
+                                            test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            mod_y=SL.out$QAW.reg.train,
+                                            mod_ps = SL.out$g.reg.train)
+      
+      spv[i,,2,r]<- bounds_set_policy_value(w.confidence_set, ab = ab,
+                                            test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            mod_y=SL.out$QAW.reg.train,
+                                            mod_ps = SL.out$g.reg.train)
+      
+      spv[i,,3,r]<- bounds_set_policy_value(exp.confidence_set, ab = ab,
+                                            test= SL.out$df_new, levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            mod_y=SL.out$QAW.reg.train,
+                                            mod_ps = SL.out$g.reg.train)
     }
   }
   # uppest lower bound set 
@@ -203,17 +224,16 @@ for(i in 1:length(alphas)){
   naive.confidence_set <- split(indices_naive[, "col"], indices_naive[, "row"])
   
   mean_width[i,4,]<- width(pred_set = naive.confidence_set)
-  spv[i,,4,]<- bounds_set_policy_value(naive.confidence_set, ab = ab,
-                                       test= SL.out$df_new, levels=levels_A,
-                                       treatment_name = treatment_name,
-                                       outcome_name = outcome_name,
-                                       covariates = covariates_name,
-                                       mod_y=SL.out$QAW.reg.train,
-                                       mod_ps = SL.out$g.reg.train)
   coverage_A[i,r,4] <- coverage_relaxed(test[,treatment_name], pred_set = naive.confidence_set)
   heatmaps_r[,,i,r,4] <- heatmap_treatments(naive.confidence_set, levels_A) %>% as.matrix()
   if(synthetic_scenario){
     # uppest-lower bound set  
+    spv[i,,4,]<- oracular_set_policy_value(naive.confidence_set, 
+                                         test= SL.out$df_new, levels=levels_A,
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name,
+                                         test_potential_outcome = SL.out$potential_outcomes)
     cov_vec[i,4,]<- coverage(true_set = SL.out$optimal_policy_new, 
                              pred_set = naive.confidence_set)
     cov_relaxed[i,4,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new, 
@@ -235,16 +255,23 @@ for(i in 1:length(alphas)){
                                          pred_set = true_confidence_set)
     cov_unif[i,,5,]<- replicate(n_test, coverage_unif(SL.out$optimal_policy_new,
                                                       pred_set = true_confidence_set))
-    spv[i,,5,]<- bounds_set_policy_value(true_confidence_set, ab = ab,
+    spv[i,,5,]<- oracular_set_policy_value(true_confidence_set, 
+                                         test= SL.out$df_new, levels=levels_A,
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name,
+                                         test_potential_outcome=SL.out$potential_outcomes)
+    
+    coverage_A[i,r,5] <- coverage_relaxed(test[,treatment_name], pred_set = true_confidence_set)
+    heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set, levels_A) %>% as.matrix()
+  }else{
+    spv[i,,4,]<- bounds_set_policy_value(naive.confidence_set, ab = ab,
                                          test= SL.out$df_new, levels=levels_A,
                                          treatment_name = treatment_name,
                                          outcome_name = outcome_name,
                                          covariates = covariates_name,
                                          mod_y=SL.out$QAW.reg.train,
                                          mod_ps = SL.out$g.reg.train)
-    
-    coverage_A[i,r,5] <- coverage_relaxed(test[,treatment_name], pred_set = true_confidence_set)
-    heatmaps_r[,,i,r,5] <- heatmap_treatments(true_confidence_set, levels_A) %>% as.matrix()
   }
   
   print(i)
@@ -306,13 +333,6 @@ est_set_unweighted <-  replicate(n_test,
                                  apply(unweighted_probs, 1, 
                                        function(x) which(stats::rmultinom(1,1,prob=x)!=0)))
 unweighted_set <- apply(est_set_unweighted, 1, unique)
-unweighted_SPV <-bounds_set_policy_value(unweighted_set, ab = ab,
-                                         test= SL.out$df_new, levels=levels_A,
-                                         treatment_name = treatment_name,
-                                         outcome_name = outcome_name,
-                                         covariates = covariates_name,
-                                         mod_y=SL.out$QAW.reg.train,
-                                         mod_ps = SL.out$g.reg.train)
 
 # SL SPV
 sl.probs<- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_new,
@@ -322,13 +342,6 @@ sl.probs<- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_new,
 est_set_sl <-  replicate(n_test,apply(sl.probs, 1,
                                       function(x)which(stats::rmultinom(1,1,prob=x)!=0)))
 sl_set <- apply(est_set_sl, 1, unique)
-sl_SPV <- bounds_set_policy_value(sl_set, ab = ab,
-                                  test= SL.out$df_new, levels=levels_A,
-                                  treatment_name = treatment_name,
-                                  outcome_name = outcome_name,
-                                  covariates = covariates_name,
-                                  mod_y=SL.out$QAW.reg.train,
-                                  mod_ps = SL.out$g.reg.train)
 
 # Exp SPV
 exp_probs <- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_new,
@@ -339,14 +352,51 @@ est_set_exp <-  replicate(n_test,
                           apply(exp_probs, 1,
                                 function(x)which(stats::rmultinom(1,1,prob=x)!=0)))
 exp_set <- apply(est_set_exp, 1, unique)
-exp_SPV <- bounds_set_policy_value(exp_set, ab = ab,
-                                   test= SL.out$df_new, levels=levels_A,
-                                   treatment_name = treatment_name,
-                                   outcome_name = outcome_name,
-                                   covariates = covariates_name,
-                                   mod_y=SL.out$QAW.reg.train,
-                                   mod_ps = SL.out$g.reg.train)
 
+if(synthetic_scenario){
+  unweighted_SPV <-oracular_set_policy_value(unweighted_set, 
+                                             test= SL.out$df_new, levels=levels_A,
+                                             treatment_name = treatment_name,
+                                             outcome_name = outcome_name,
+                                             covariates = covariates_name,
+                                             test_potential_outcome = SL.out$potential_outcomes)
+  
+  sl_SPV <- oracular_set_policy_value(sl_set, 
+                                    test= SL.out$df_new, levels=levels_A,
+                                    treatment_name = treatment_name,
+                                    outcome_name = outcome_name,
+                                    covariates = covariates_name,
+                                    test_potential_outcome = SL.out$potential_outcomes)
+  exp_SPV <- oracular_set_policy_value(exp_set,
+                                     test= SL.out$df_new, levels=levels_A,
+                                     treatment_name = treatment_name,
+                                     outcome_name = outcome_name,
+                                     covariates = covariates_name,
+                                     test_potential_outcome = SL.out$potential_outcomes)
+}else{
+  unweighted_SPV <-bounds_set_policy_value(unweighted_set, ab = ab,
+                                           test= SL.out$df_new, levels=levels_A,
+                                           treatment_name = treatment_name,
+                                           outcome_name = outcome_name,
+                                           covariates = covariates_name,
+                                           mod_y=SL.out$QAW.reg.train,
+                                           mod_ps = SL.out$g.reg.train)
+  sl_SPV <- bounds_set_policy_value(sl_set, ab = ab,
+                                    test= SL.out$df_new, levels=levels_A,
+                                    treatment_name = treatment_name,
+                                    outcome_name = outcome_name,
+                                    covariates = covariates_name,
+                                    mod_y=SL.out$QAW.reg.train,
+                                    mod_ps = SL.out$g.reg.train)
+  exp_SPV <- bounds_set_policy_value(exp_set, ab = ab,
+                                     test= SL.out$df_new, levels=levels_A,
+                                     treatment_name = treatment_name,
+                                     outcome_name = outcome_name,
+                                     covariates = covariates_name,
+                                     mod_y=SL.out$QAW.reg.train,
+                                     mod_ps = SL.out$g.reg.train)
+  
+}
 
 hline_labels <- data.frame(
   x = 1,  # start of line (we'll extend it using xend)
@@ -357,13 +407,12 @@ hline_labels <- data.frame(
 )
 # True SPV
 if(synthetic_scenario){
-  true_SPV <-  bounds_set_policy_value(SL.out$optimal_policy_new, ab = ab,
+  true_SPV <-  oracular_set_policy_value(SL.out$optimal_policy_new,
                                        test= SL.out$df_new, levels=levels_A,
                                        treatment_name = treatment_name,
                                        outcome_name = outcome_name,
                                        covariates = covariates_name,
-                                       mod_y=SL.out$QAW.reg.train,
-                                       mod_ps = SL.out$g.reg.train)
+                                       test_potential_outcome = SL.out$potential_outcomes)
   
   hline_labels <- data.frame(
     x = 1,  # start of line (we'll extend it using xend)
