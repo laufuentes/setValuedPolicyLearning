@@ -48,7 +48,7 @@ if(synthetic_scenario){
   # Synthetic data generation 
   
   ## Training observations 
-  n<- 12*1e3  # number of observations for training CP.
+  n<- 18*1e3  # number of observations for training CP.
   is_RCT <- FALSE
   RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
   exp <- generate_data(n, type=type, is_RCT=is_RCT)  
