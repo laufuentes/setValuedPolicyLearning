@@ -3,14 +3,14 @@ density_plot <- ggplot2::ggplot(data_toghether,
                                 ggplot2::aes(x = value, 
                                              color = as.factor(type))) +
   ggplot2::geom_density(linewidth = 1) +
-  ggplot2::geom_density(data = behavioral_data,
-                        ggplot2::aes(x = value),
-                        color = "green",
-                        linetype = "dashed",
-                        inherit.aes = FALSE, linewidth=1.2)+
+   ggplot2::geom_density(data = behavioral_data,
+                         ggplot2::aes(x = value),
+                         color = "green",
+                         linetype = "dashed",
+                         inherit.aes = FALSE, linewidth=1.2)+
   ggplot2::scale_color_viridis_d(option="magma")+
-  ggplot2::facet_grid(rows=vars(mechanism),
-                      cols=vars(model)) +
+  ggplot2::facet_grid(rows=ggplot2::vars(mechanism),
+                      cols=ggplot2::vars(model)) +
   #gganimate:: transition_states(type, transition_length = 0, 
   #                              state_length = 1) + # remove for GIF
   ggplot2::labs(y = "Density",
@@ -22,12 +22,13 @@ density_plot <- ggplot2::ggplot(data_toghether,
 ecdf_plot <- ggplot2::ggplot(data_toghether,
                              ggplot2::aes(x = value,
                                           color = as.factor(type))) +
-  ggplot2::stat_ecdf(data = behavioral_data, aes(x=value),
-                     color = "green",
-                     linetype = "dashed", linewidth=1.2, geom = "step")+
+   ggplot2::stat_ecdf(data = behavioral_data, aes(x=value),
+                      color = "green",
+                      linetype = "dashed", linewidth=1.2, geom = "step")+
   ggplot2::scale_color_viridis_d(option="magma")+
   ggplot2::stat_ecdf(geom = "step", linewidth = 1) +
-  ggplot2::facet_grid(rows=vars(mechanism), cols=vars(model), scales = "free") +
+  ggplot2::facet_grid(rows=ggplot2::vars(mechanism), 
+                      cols=ggplot2::vars(model), scales = "free") +
   ggplot2::labs(y = "ECDF",
                 color = "Score Type",
                 linetype = "Score Type") +
@@ -144,11 +145,12 @@ for(i in 1:length(alphas)){
     heatmaps_r[,,i,r,3] <- heatmap_treatments(exp.confidence_set, levels_A) %>% as.matrix()
     if(synthetic_scenario){
       # Unweighted 
-      spv[i,,1,r]<- oracular_set_policy_value(confidence_set, test= SL.out$df_new, levels=levels_A,
-                                            treatment_name = treatment_name,
-                                            outcome_name = outcome_name,
-                                            covariates = covariates_name,
-                                            test_potential_outcome= SL.out$potential_outcomes)
+      spv[i,,1,r]<- oracular_set_policy_value(confidence_set, test= SL.out$df_new, 
+                                              levels=levels_A,
+                                              treatment_name = treatment_name,
+                                              outcome_name = outcome_name,
+                                              covariates = covariates_name,
+                                              test_potential_outcome= SL.out$potential_outcomes)
       
       cov_vec[i,1,r]<- coverage(true_set = SL.out$optimal_policy_new, 
                                 pred_set = confidence_set)
@@ -445,7 +447,7 @@ spv_boxplot <- ggplot2::ggplot(spv_data, aes(x = factor(level), y = value)) +
       stats::setNames(hline_labels$fill, hline_labels$type)
     )
   ) +
-  ggplot2::facet_grid(rows=vars(mechanism)) +
+  ggplot2::facet_grid(rows=ggplot2::vars(mechanism)) +
   ggplot2::labs(title = "SPV", x = "Level", y = "Set policy value") +
   ggplot2::theme_minimal()
 
@@ -483,7 +485,7 @@ spv_lines <- ggplot2::ggplot(spv_means,
       stats::setNames(hline_labels$fill, hline_labels$type)
     )
   ) +
-  ggplot2::facet_grid(rows=vars(mechanism)) +
+  ggplot2::facet_grid(rows=ggplot2::vars(mechanism)) +
   ggplot2::labs(title = "SPV",
                 x = "Level",
                 y = "Set policy value",
@@ -511,7 +513,7 @@ mean_width_plot <- ggplot2::ggplot(data=mean_width_data,
   ggplot2::geom_line(aes(group=type))+
   ggplot2::geom_point(aes(group=type))+
   ggplot2::scale_color_viridis_d(option="magma")+
-  ggplot2::facet_grid(rows=vars(mechanism)) +
+  ggplot2::facet_grid(rows=ggplot2::vars(mechanism)) +
   ggplot2::labs(title="Mean width", x = "Level", y = "Coverage") +
   ggplot2::theme_minimal()
 
@@ -537,7 +539,7 @@ coverage_A_plot <- ggplot2::ggplot(data=coverage_A_data,
   ggplot2::geom_line(aes(group=randomness))+
   ggplot2::geom_point(aes(group=randomness))+
   ggplot2::scale_color_viridis_d(option="magma")+
-  ggplot2::facet_grid(rows=vars(expert)) +
+  ggplot2::facet_grid(rows=ggplot2::vars(expert)) +
   ggplot2::labs(x = "Level", y = "Coverage real treatment") +
   ggplot2::theme_minimal()
 
@@ -604,7 +606,7 @@ if(synthetic_scenario){
                          linewidth = 2, alpha=0.7) +
     ggplot2::scale_color_viridis_d(option = "magma") +
     ggplot2::scale_fill_viridis_d(option = "magma") +
-    ggplot2::facet_grid(rows=vars(mechanism)) +
+    ggplot2::facet_grid(rows=ggplot2::vars(mechanism)) +
     ggplot2::labs(title = "Coverage", x = "Level", y = "Coverage") +
     ggplot2::theme_minimal()
   
@@ -632,7 +634,7 @@ if(synthetic_scenario){
                                                   color = type, group = type)) +
     ggplot2::geom_line(linewidth = 1.2, alpha = 0.3) +
     ggplot2::geom_point(size = 2) +
-    ggplot2::facet_grid(rows = vars(mechanism)) +
+    ggplot2::facet_grid(rows = ggplot2::vars(mechanism)) +
     # horizontal lines per mechanism and type
     ggplot2::geom_hline(data = mean_lines, 
                         ggplot2::aes(yintercept = mean_val, color = type),
@@ -661,7 +663,7 @@ if(synthetic_scenario){
                              ggplot2::aes(x=mean_value_spv,y=mean_value_cov,
                                           color = type)) +
     ggplot2::geom_point() +
-    ggplot2::facet_grid(rows = vars(mechanism), cols=vars(level), scales="fixed") +
+    ggplot2::facet_grid(rows = ggplot2::vars(mechanism), cols=ggplot2::vars(level), scales="fixed") +
     ggplot2::scale_color_viridis_d(option = "magma") +
     ggplot2::labs(
       x = "SPV",
@@ -683,7 +685,7 @@ if(synthetic_scenario){
     ggplot2::geom_line(aes(group=randomness))+
     ggplot2::geom_point(aes(group=randomness))+
     ggplot2::scale_color_viridis_d(option="magma")+
-    ggplot2::facet_grid(rows=vars(expert)) +
+    ggplot2::facet_grid(rows=ggplot2::vars(expert)) +
     ggplot2::labs(x = "Level", y = "Coverage real treatment") +
     ggplot2::theme_minimal()
   

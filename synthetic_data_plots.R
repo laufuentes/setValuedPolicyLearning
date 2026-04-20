@@ -319,7 +319,7 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
         group = "ULB"),
       shape = 4,
       position = position_dodge(width = 0.75))+
-    ggplot2::facet_grid(cols=vars(size)) +
+    ggplot2::facet_grid(cols=ggplot2::vars(size)) +
     ggplot2::labs(title = "SPV",
                   x = expression("Confidence level (" * alpha * ")"),
                   y = "Set policy value",
@@ -346,7 +346,7 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
           viridisLite::viridis(length(unique(mean_width_data_mech$type)), 
                                option = "magma"), 
           unique(mean_width_data_mech$type)),"ULB" = "blue")) +
-    ggplot2::facet_grid(cols=vars(size)) +
+    ggplot2::facet_grid(cols=ggplot2::vars(size)) +
     ggplot2::labs(title="Mean width", 
                   x = expression("Confidence level (" * alpha * ")"), 
                   y = "Coverage") +
@@ -374,7 +374,7 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
           viridisLite::viridis(length(unique(cov_data_mech$type)), 
                                option = "magma"), 
           unique(cov_data_mech$type)),"ULB" = "blue")) +
-    ggplot2::facet_grid(cols=vars(size)) +
+    ggplot2::facet_grid(cols=ggplot2::vars(size)) +
     ggplot2::labs(title = "Coverage", 
                   x = expression("Confidence level (" * alpha * ")"), 
                   y = "Coverage") +
@@ -394,7 +394,7 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
                         ggplot2::aes(x = level, y = cov_factor, 
                                      color = "ULB", group ="ULB"), 
                         shape=4, size = 2) +
-    ggplot2::facet_grid(cols=vars(size)) +
+    ggplot2::facet_grid(cols=ggplot2::vars(size)) +
     # horizontal lines per mechanism and type
     ggplot2::geom_hline(data = mean_lines %>% filter(mechanism==mech), 
                         ggplot2::aes(yintercept = mean_val, color = type),
