@@ -62,7 +62,7 @@ spv_data_6000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000_rct[["spv"]])[1], function(a) {
     data.frame(
       value = results_6000_rct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_6000_rct[["spv"]])[1], function(a) {
@@ -77,7 +77,7 @@ spv_data_6000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000_nonrct[["spv"]])[1], function(a) {
     data.frame(
       value = results_6000_nonrct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_6000_nonrct[["spv"]])[1], function(a) {
@@ -92,7 +92,7 @@ spv_data_12000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000_rct[["spv"]])[1], function(a) {
     data.frame(
       value = results_12000_rct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_12000_rct[["spv"]])[1], function(a) {
@@ -107,7 +107,7 @@ spv_data_12000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000_nonrct[["spv"]])[1], function(a) {
     data.frame(
       value = results_12000_nonrct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_12000_nonrct[["spv"]])[1], function(a) {
@@ -123,7 +123,7 @@ spv_data_18000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000_rct[["spv"]])[1], function(a) {
     data.frame(
       value = results_18000_rct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_18000_rct[["spv"]])[1], function(a) {
@@ -138,7 +138,7 @@ spv_data_18000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000_nonrct[["spv"]])[1], function(a) {
     data.frame(
       value = results_18000_nonrct[["spv"]][a, ,4,1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_18000_nonrct[["spv"]])[1], function(a) {
@@ -153,7 +153,7 @@ mean_width_data_6000_rct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_6000_rct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_6000_rct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -171,7 +171,7 @@ mean_width_data_6000_nonrct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_6000_nonrct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_6000_nonrct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -189,7 +189,7 @@ mean_width_data_12000_rct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_12000_rct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_12000_rct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -207,7 +207,7 @@ mean_width_data_12000_nonrct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_12000_nonrct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_12000_nonrct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -225,7 +225,7 @@ mean_width_data_18000_rct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_18000_rct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_18000_rct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -243,7 +243,7 @@ mean_width_data_18000_nonrct <- dplyr::bind_rows(
   make_smaller_block(1, "Estimated labels", results_18000_nonrct[["mean_width"]], random_rate) %>% group_by(mechanism,type)%>% mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(), 
   data.frame(
     value = results_18000_nonrct[["mean_width"]][, 4, 1],
-    mechanism = "ULB",
+    mechanism = "GLB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -263,7 +263,7 @@ cov_data_6000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000_rct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_6000_rct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}), 
@@ -281,7 +281,7 @@ cov_data_6000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000_nonrct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_6000_nonrct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}), 
@@ -299,7 +299,7 @@ cov_data_12000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000_rct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_12000_rct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -317,7 +317,7 @@ cov_data_12000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000_nonrct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_12000_nonrct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -335,7 +335,7 @@ cov_data_18000_rct <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000_rct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_18000_rct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -353,7 +353,7 @@ cov_data_18000_nonrct <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000_nonrct[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_18000_nonrct[["cov_unif"]][a, , 4, 1],
-      mechanism = "ULB",
+      mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -423,32 +423,32 @@ model <- lm(
 summary(model)
 
 # With random noise 
-combined <- ggplot(complete_data, 
-                     aes(x = cov_mean, y = mean_spv)) +
-  geom_line(aes(group = interaction(size, type), 
-                color = factor(size), 
-                linetype = type),
-            alpha = 0.3)+
-  geom_point(aes(size = mean_width, 
-                 color = factor(size)), 
-             alpha = 0.5, 
-             show.legend = c(size = FALSE)) +
-  scale_size_continuous(range = c(0.5, 2)) +
-  facet_grid(study ~ mechanism) +
-  # Use labs to rename the aesthetics mapped in your geoms
-  labs(
-    x = expression("Coverage attained ( 1 - " * alpha * ")"), 
-    y = "SPV",
-    color = "Size",           
-    linetype = "Noise level (r)" )
-ggplot2::ggsave(combined, filename=paste0("images/",score_name, "Combined_cov_spv_", type,".pdf"), width = 15, height = 8)
+# combined <- ggplot(complete_data, 
+#                      aes(x = cov_mean, y = mean_spv)) +
+#   geom_line(aes(group = interaction(size, type), 
+#                 color = factor(size), 
+#                 linetype = type),
+#             alpha = 0.3)+
+#   geom_point(aes(size = mean_width, 
+#                  color = factor(size)), 
+#              alpha = 0.5, 
+#              show.legend = c(size = FALSE)) +
+#   scale_size_continuous(range = c(0.5, 2)) +
+#   facet_grid(study ~ mechanism) +
+#   # Use labs to rename the aesthetics mapped in your geoms
+#   labs(
+#     x = expression("Coverage attained ( 1 - " * alpha * ")"), 
+#     y = "SPV",
+#     color = "Size",           
+#     linetype = "Noise level (r)" )
+# ggplot2::ggsave(combined, filename=paste0("images/",score_name, "Combined_cov_spv_", type,".pdf"), width = 15, height = 8)
 
 # Random noise 
 plot_data <- complete_data %>%
   mutate(color_group = case_when(
     mechanism == "Estimated labels" ~ paste0("type_", type),
     mechanism == "True labels" ~ "True labels",
-    mechanism == "ULB" ~ "ULB"
+    mechanism == "GLB" ~ "GLB"
   ))
 
 type_vals <- sort(unique(plot_data$type))
@@ -470,10 +470,10 @@ plot_combined_level <- ggplot(plot_data,
         paste0("type_", type_vals)
       ),
       "True labels" = "blue",
-      "ULB"  = "green"
+      "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "True labels", "ULB"),
-    labels = c(paste0("r = ", type_vals), "True labels", "ULB")
+    breaks = c(paste0("type_", type_vals), "True labels", "GLB"),
+    labels = c(paste0("r = ", type_vals), "True labels", "GLB")
   ) +
   
   scale_size_continuous(name = "Mean width",
@@ -503,10 +503,10 @@ plot_combined_cov <- ggplot(plot_data,
         paste0("type_", type_vals)
       ),
       "True labels" = "blue",
-      "ULB"  = "green"
+      "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "True labels", "ULB"),
-    labels = c(paste0("r = ", type_vals), "True labels", "ULB")
+    breaks = c(paste0("type_", type_vals), "True labels", "GLB"),
+    labels = c(paste0("r = ", type_vals), "True labels", "GLB")
   ) +
   
   scale_size_continuous(name = "Mean width",
@@ -536,10 +536,10 @@ plot_cov_level <- ggplot(plot_data,
         paste0("type_", type_vals)
       ),
       "True labels" = "blue",
-      "ULB"  = "green"
+      "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "True labels", "ULB"),
-    labels = c(paste0("r = ", type_vals), "True labels", "ULB")
+    breaks = c(paste0("type_", type_vals), "True labels", "GLB"),
+    labels = c(paste0("r = ", type_vals), "True labels", "GLB")
   ) +
   
   scale_size_continuous(name = "Mean width",
@@ -547,18 +547,18 @@ plot_cov_level <- ggplot(plot_data,
   facet_grid(study ~ size) +
   
   labs(x = expression("Confidence level (" * alpha * ")"),
-       y = expression("Coverage attained ( 1- " * alpha * ")"))
+       y = expression("Coverage attained"))
 ggplot2::ggsave(plot_cov_level, filename=paste0("images/",score_name, "Cov_level_", type,".pdf"), width = 15, height = 8)
  
 plot_combined_cov_factor <- ggplot(plot_data,
-                              aes(x = cov_factor,
-                                  y = mean_spv)) +
-  geom_line(data = subset(plot_data, mechanism == "Estimated labels"),
-            aes(group = level, color = color_group),
-            alpha = 0.7) +
-  geom_point(aes(size = mean_width, color = color_group),
+                              aes(x = level,
+                                  y = cov_factor, 
+                                  group = color_group ,
+                                  color=color_group)) +
+  geom_line(alpha = 0.7) +
+  geom_point(aes(size = mean_spv, color = color_group),
              alpha = 0.5, show.legend = c(size=FALSE)) +
-  
+  geom_hline(yintercept = 0, color="red")+
   scale_color_manual(
     name = "Technique",
     values = c(
@@ -567,16 +567,16 @@ plot_combined_cov_factor <- ggplot(plot_data,
         paste0("type_", type_vals)
       ),
       "True labels" = "blue",
-      "ULB"  = "green"
+      "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "True labels", "ULB"),
-    labels = c(paste0("r = ", type_vals), "True labels", "ULB")
+    breaks = c(paste0("type_", type_vals), "True labels", "GLB"),
+    labels = c(paste0("r = ", type_vals), "True labels", "GLB")
   ) +
-  
+
   scale_size_continuous(name = "Mean width",
                         range = c(0.1, 2)) +
   facet_grid(study ~ size) +
   labs(x = "Marginal coverage factor ",
        y = "SPV")
-ggplot2::ggsave(plot_combined_cov_factor, filename=paste0("images/",score_name, "Combined_cov_factor_", type,".pdf"), width = 8, height = 8)
+ggplot2::ggsave(plot_combined_cov_factor, filename=paste0("images/",score_name, "Combined_cov_factor_", type,".pdf"), width = 15, height = 8)
 
