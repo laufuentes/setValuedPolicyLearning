@@ -15,7 +15,7 @@ spv_data_6000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000[["spv"]])[1], function(a) {
     data.frame(
       value = results_6000[["spv"]][a, ,4,1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_6000[["spv"]])[1], function(a) {
@@ -32,7 +32,7 @@ spv_data_12000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000[["spv"]])[1], function(a) {
     data.frame(
       value = results_12000[["spv"]][a, ,4,1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_12000[["spv"]])[1], function(a) {
@@ -49,7 +49,7 @@ spv_data_18000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000[["spv"]])[1], function(a) {
     data.frame(
       value = results_18000[["spv"]][a, ,4,1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1]))}), 
   map_dfr(1:dim(results_18000[["spv"]])[1], function(a) {
@@ -149,7 +149,7 @@ mean_width_data_6000 <- dplyr::bind_rows(
   make_smaller_block(3, "Exp", results_6000[["mean_width"]], random_rate)%>%  group_by(mechanism,type)%>%mutate(levels=(row_number()-1)/(length(alphas)-1))%>% ungroup(),
   data.frame(
     value = results_6000[["mean_width"]][, 4, 1],
-    mechanism = "Naive",
+    mechanism = "ULB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -169,7 +169,7 @@ mean_width_data_12000 <- dplyr::bind_rows(
   make_smaller_block(3, "Exp", results_12000[["mean_width"]], random_rate)%>%  group_by(mechanism,type)%>%mutate(levels=(row_number()-1)/(length(alphas)-1))%>% ungroup(),
   data.frame(
     value = results_12000[["mean_width"]][, 4, 1],
-    mechanism = "Naive",
+    mechanism = "ULB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -189,7 +189,7 @@ mean_width_data_18000 <- dplyr::bind_rows(
   make_smaller_block(3, "Exp", results_18000[["mean_width"]], random_rate)%>%  group_by(mechanism,type)%>%mutate(levels=(row_number()-1)/(length(alphas)-1))%>% ungroup(),
   data.frame(
     value = results_18000[["mean_width"]][, 4, 1],
-    mechanism = "Naive",
+    mechanism = "ULB",
     type = paste0(random_rate[1])
   ) %>% dplyr::group_by(mechanism,type)%>%
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
@@ -213,7 +213,7 @@ cov_data_6000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_6000[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_6000[["cov_unif"]][a, , 4, 1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}), 
@@ -234,7 +234,7 @@ cov_data_12000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_12000[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_12000[["cov_unif"]][a, , 4, 1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -254,7 +254,7 @@ cov_data_18000 <- dplyr::bind_rows(
   map_dfr(1:dim(results_18000[["cov_unif"]])[1], function(a) {
     data.frame(
       value = results_18000[["cov_unif"]][a, , 4, 1],
-      mechanism = "Naive",
+      mechanism = "ULB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
@@ -302,16 +302,23 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
                           linetype = "dashed", linewidth = 1) +
     ggplot2::scale_color_manual(
       values = c(
-        stats::setNames(viridisLite::viridis(length(unique(spv_means$type)), 
-                                             option = "magma"), 
-                        unique(spv_means$type)),
-        stats::setNames(hline_labels$fill, hline_labels$type)
+        stats::setNames(
+          viridisLite::viridis(length(unique(spv_means$type)), option = "magma"), 
+          unique(spv_means$type)
+        ),
+        stats::setNames(hline_labels$fill, hline_labels$type),
+        "ULB" = "blue"  
       )
-    ) +
-    ggplot2::geom_point(data = spv_means%>%filter(mechanism=="Naive"), 
-                        ggplot2::aes(x = factor(level), 
-                                     y = mean_value), color = "blue", shape=4,
-                        position = position_dodge(width = 0.75)) +
+    )+
+    ggplot2::geom_point(
+      data = spv_means %>% filter(mechanism == "ULB"), 
+      ggplot2::aes(
+        x = factor(level),
+        y = mean_value,
+        color = "ULB",  
+        group = "ULB"),
+      shape = 4,
+      position = position_dodge(width = 0.75))+
     ggplot2::facet_grid(cols=vars(size)) +
     ggplot2::labs(title = "SPV",
                   x = expression("Confidence level (" * alpha * ")"),
@@ -328,10 +335,17 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
                                                   color=type))+
     ggplot2::geom_line(aes(group=type))+
     ggplot2::geom_point(aes(group=type))+
-    ggplot2::geom_point(data = mean_width_data %>%filter(mechanism=="Naive"), 
-                        ggplot2::aes(x = factor(levels), 
-                                     y = value), color = "blue", shape=4)+
-    ggplot2::scale_color_viridis_d(option="magma")+
+    ggplot2::geom_point(
+      data = mean_width_data %>% filter(mechanism == "ULB"), 
+      ggplot2::aes(
+        x = factor(levels), y = value, color = "ULB", group = "ULB"), 
+      shape = 4) +
+    ggplot2::scale_color_manual(
+      values = c(
+        stats::setNames(
+          viridisLite::viridis(length(unique(mean_width_data_mech$type)), 
+                               option = "magma"), 
+          unique(mean_width_data_mech$type)),"ULB" = "blue")) +
     ggplot2::facet_grid(cols=vars(size)) +
     ggplot2::labs(title="Mean width", 
                   x = expression("Confidence level (" * alpha * ")"), 
@@ -351,11 +365,15 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
     ggplot2::geom_abline(slope = -1/length(alphas), colour= "red", 
                          intercept = 1, linetype = 2,
                          linewidth = 2, alpha=0.7) +
-    ggplot2::scale_color_viridis_d(option = "magma") +
-    ggplot2::scale_fill_viridis_d(option = "magma") +
-    ggplot2::geom_point(data = cov_means %>% filter(mechanism=="Naive"),
-                       ggplot2::aes(x = factor(level), y = mean_value),
-                       color = "blue", shape=4, show.legend = FALSE)+
+    ggplot2::geom_point(data = cov_means %>% filter(mechanism=="ULB"),
+                       ggplot2::aes(x = factor(level), y = mean_value, 
+                                    color= "ULB", fill = "ULB"), shape=4)+
+    ggplot2::scale_color_manual(
+      values = c(
+        stats::setNames(
+          viridisLite::viridis(length(unique(cov_data_mech$type)), 
+                               option = "magma"), 
+          unique(cov_data_mech$type)),"ULB" = "blue")) +
     ggplot2::facet_grid(cols=vars(size)) +
     ggplot2::labs(title = "Coverage", 
                   x = expression("Confidence level (" * alpha * ")"), 
@@ -372,9 +390,10 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
                                                   color = type, group = type)) +
     ggplot2::geom_line(linewidth = 1.2, alpha = 0.3) +
     ggplot2::geom_point(size = 2) +
-    ggplot2::geom_point(data=cov_factor_data %>% filter(mechanism=="Naive"),
-                        ggplot2::aes(x = level, y = cov_factor),
-                        color = "blue", shape=4, show.legend = FALSE,size = 2) +
+    ggplot2::geom_point(data=cov_factor_data %>% filter(mechanism=="ULB"),
+                        ggplot2::aes(x = level, y = cov_factor, 
+                                     color = "ULB", group ="ULB"), 
+                        shape=4, size = 2) +
     ggplot2::facet_grid(cols=vars(size)) +
     # horizontal lines per mechanism and type
     ggplot2::geom_hline(data = mean_lines %>% filter(mechanism==mech), 
@@ -383,7 +402,12 @@ for(mech in c("Unweighted", "SL", "Exp", "True")){
     # horizontal line at y = 0
     ggplot2::geom_hline(yintercept = 0, color = "aquamarine1", 
                         linetype = "solid", linewidth = 1) +
-    ggplot2::scale_color_viridis_d(option = "magma") +
+    ggplot2::scale_color_manual(
+      values = c(
+        stats::setNames(
+          viridisLite::viridis(length(unique(cov_factor_data_mech$type)), 
+                               option = "magma"), 
+          unique(cov_factor_data_mech$type)),"ULB" = "blue")) +
     ggplot2::labs(
       title = "Coverage factor",
       x = expression("Confidence level (" * alpha * ")"),
