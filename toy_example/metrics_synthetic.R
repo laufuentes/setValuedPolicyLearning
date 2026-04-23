@@ -1,70 +1,79 @@
+type_vals <- sort(unique(SL.out$data_toghether$type))
+val_names <- c(paste0("type_", type_vals), "Oracular CP", "Behavioral policy")
+color_values <- c(
+  viridisLite::viridis(length(type_vals), option = "magma"),
+  "aquamarine1","green")
+names(color_values) <- val_names
+
+label_values <- c(
+  paste0("r = ", type_vals), 
+  "Oracular CP", 
+  "Behavioral policy"
+)
+names(label_values) <- val_names
+
+
 # Density plot 
-density_plot <- ggplot2::ggplot(data_toghether,
+density_plot <- ggplot2::ggplot(SL.out$data_toghether,
                                 ggplot2::aes(x = value, 
-                                             color = as.factor(type))) +
+                                             color = paste0("type_", type))) +
   ggplot2::geom_density(linewidth = 1) +
   ggplot2::geom_density(data = behavioral_data,
-                        ggplot2::aes(x = value),
-                        color = "green",
+                        ggplot2::aes(x = value, color = "Oracular CP"),
                         linetype = "dashed",
                         inherit.aes = FALSE, linewidth=1.2)+
-  ggplot2::scale_color_viridis_d(option="magma")+
   ggplot2::geom_density(data = data_true_all,
-                        ggplot2::aes(x = value),
-                        color = "aquamarine1",
+                        ggplot2::aes(x = value, color = "Behavioral policy"),
                         linetype = "dashed",
                         inherit.aes = FALSE, linewidth=1.2)+
-  ggplot2::facet_grid(rows=ggplot2::vars(mechanism),
-                      cols=ggplot2::vars(model)) +
+  ggplot2::scale_color_manual(
+    name = "Technique",
+    values = color_values,
+    labels = label_values
+  ) +
+  ggplot2::facet_grid(cols=ggplot2::vars(model)) +
   #gganimate:: transition_states(type, transition_length = 0, 
   #                              state_length = 1) + # remove for GIF
   ggplot2::labs(y = "Density",
                 color = "Type of labels",
-                linetype = "Score Type") +
-  ggplot2::theme(strip.placement = "outside",
-                 strip.background = element_blank())#+gganimate::ease_aes('linear')
+                linetype = "Score Type")#+gganimate::ease_aes('linear')
 
 ggplot2::ggsave(density_plot, 
-                filename=paste0("images/",score_name, RCT_file, n, "/", "density_",type,".pdf"), 
+                filename=paste0("images/", n, "/", "density_",type,".pdf"), 
                 width = 10, height = 8)
 
-ecdf_plot <- ggplot2::ggplot(data_toghether,
-                             ggplot2::aes(x = value,
-                                          color = as.factor(type))) +
-  # ggplot2::stat_ecdf(data = behavioral_data, aes(x=value),
-  #                    color = "green",
-  #                    linetype = "dashed", linewidth=1.2, geom = "step")+
-  ggplot2::scale_color_viridis_d(option="magma")+
+ecdf_plot <- ggplot2::ggplot(SL.out$data_toghether, 
+                             ggplot2::aes(x = value, color = paste0("type_", type))) +
   ggplot2::stat_ecdf(geom = "step", linewidth = 1) +
   ggplot2::stat_ecdf(data = data_true_all,
-                        ggplot2::aes(x = value),
-                        color = "aquamarine1",
-                        linetype = "dashed",
-                        inherit.aes = FALSE, linewidth=1.2)+
-  ggplot2::facet_grid(rows=ggplot2::vars(mechanism), 
-                      cols=ggplot2::vars(model), scales = "free") +
-  ggplot2::labs(y = "ECDF",
-                color = "Score Type",
-                linetype = "Score Type") +
-  ggplot2::theme(strip.placement = "outside",
-                 strip.background = element_blank())
+                     ggplot2::aes(x = value, color = "Oracular CP"),
+                     linetype = "dashed", linewidth = 1.2, inherit.aes = FALSE) +
+  ggplot2::stat_ecdf(data = behavioral_data, 
+                     ggplot2::aes(x = value, color = "Behavioral policy"),
+                     linetype = "dashed", linewidth = 1.2, geom = "step", inherit.aes = FALSE) +
+  ggplot2::facet_grid(cols = ggplot2::vars(model), 
+                      scales = "free") +
+  ggplot2::scale_color_manual(
+    name = "Technique",
+    values = color_values,
+    labels = label_values
+  ) +
+  ggplot2::labs(y = "ECDF", x = "Value")
 
-ecdf_plot
-
-  ggplot2::ggsave(ecdf_plot, 
-                  filename=paste0("images/",score_name, RCT_file, n, "/", "ecdf_",type,".pdf"), 
+ggplot2::ggsave(ecdf_plot, 
+                  filename=paste0("images/", n, "/", "ecdf_",type,".pdf"), 
                   width = 10, height = 8)
 
 
 # # remove for GIF
 # gganimate::anim_save(
-#   paste0("images/experts/", folder, "margin/, density_", type, ".gif"),
+#   paste0("images/density_", type, ".gif"),
 #   animate(density_plot, fps = 5, width = 800, height = 600, renderer = gifski_renderer())
 # )
 
 
 
-  cov_unif <- mean_width <- cov_relaxed <- array(0, dim=c(length(alphas), 3,
+cov_unif <- mean_width <- cov_relaxed <- array(0, dim=c(length(alphas), 3,
                                                          ncol(SL.out$rate_cal_labels_unweighted)))
 
 spv<- array(0, dim=c(length(alphas), n_test, 3,
@@ -154,40 +163,7 @@ for(i in 1:length(alphas)){
   print(i)
 }
 
-  results <- list(mean_width= mean_width, cov_relaxed=cov_relaxed, 
+results <- list(mean_width= mean_width, cov_relaxed=cov_relaxed, 
                   cov_unif=cov_unif, spv=spv,heatmaps_r=heatmaps_r)
   
-  saveRDS(object = results, file = paste0("experts_pred/", score_name, RCT_file,
-                                          "plot_results_", type, "_", n, ".rds"))
-  
-
-#results <- readRDS(paste0("experts_pred/", score_name, 
-#                          "plot_results_", type, ".rds"))
-
-# names_experts <- c("Unweighted", "GLB", "True")
-# for (t in 1:dim(heatmaps_r)[5]){
-#   plots_completed <- list()
-#   for (i in 1:dim(heatmaps_r)[3]){
-#     plots <- list()
-#     for (r in 1:dim(heatmaps_r)[4]){
-#       file <- as.data.frame(heatmaps_r[,,i,r,t]) %>%
-#         mutate(row_id = row_number()) %>%
-#         pivot_longer(cols = -row_id, names_to = "column_m", values_to = "value")
-#       plots[[r]] <- ggplot(file, aes(x = column_m, y = row_id, fill = factor(value))) +
-#         geom_tile() +
-#         theme_minimal() +
-#         labs(title = paste0("r: ", random_rate[r]),
-#              x = "Treatment (m)",
-#              y = "Observations",
-#              fill = "Present")
-#     }
-#     plots_completed[[i]] <- gridExtra::arrangeGrob(grobs = plots, nrow = 1, ncol = dim(heatmaps_r)[4], top = paste0("Alpha = ", alphas[i]))
-#   }
-#   multi_page <- marrangeGrob(grobs = plots_completed, nrow = 1, ncol = 1)
-# }
-# 
-# ggplot2::ggsave(
-#     filename = paste0("images/", score_name, RCT_file, 
-#                       n, "/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
-#     multi_page, width = 30, height = 15)
-#   
+saveRDS(object = results, file = paste0("predictions/plot_results_", type, "_", n, ".rds"))

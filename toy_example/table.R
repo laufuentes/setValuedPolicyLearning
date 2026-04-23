@@ -9,7 +9,7 @@ train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
 test <-  SL.out$df_obs[SL.out$folds[[3]],]
 
 
-alpha <- 0.1
+alpha <- 0.05
 # levels of noise
 r_levels <- c(1,4,7,11)
 cov_unif<- mean_width <- matrix(0, ncol = length(r_levels)+2)
@@ -97,8 +97,8 @@ width_row <- c("Mean width", mean_width %>% round(3))
 results_df <- rbind(results_df, total_row, width_row) 
 
 addline <- list()
-addline$pos <- list(nrow(results_df) - 1)
-addline$command <- c("\\hline \n")
+addline$pos <- list(nrow(results_df) - 2, nrow(results_df)-1)
+addline$command <- rep("\\hline \n", 2)
 
 # 3. Print the LaTeX Code
 print(xtable(results_df, align =  paste0("ll", paste(rep("c", ncol(results_df) - 1), collapse = ""))), 
@@ -106,6 +106,5 @@ print(xtable(results_df, align =  paste0("ll", paste(rep("c", ncol(results_df) -
       hline.after = c(-1, 0, nrow(results_df)), 
       add.to.row = addline, 
       sanitize.text.function = function(x) x, 
-      file = paste0("images/", score_name, RCT_file, 
-                    n, "/", "Table_coverage_", type, ".txt")) 
+      file = paste0("images/", n, "/", "Table_coverage_", type, ".txt")) 
 

@@ -1,5 +1,10 @@
 # ── Set working directory  ──────────────────────────────────────────────────
-setwd("~/Documents/PhD/Project 2 - Conformal Policy Sets /CPolicySets")
+root.path <- "~/Documents/PhD/Project 2 - Conformal Policy Sets /CPolicySets"
+setwd(root.path)
+if (!dir.exists(root.path)) {
+  warning(sprintf("The directory '%s' does not exist. Creating it...", root.path))
+  dir.create(root.path, recursive = TRUE)
+}
 
 # ── Required packages  ────────────────────────────────────────────────────────
 library(SL.ODTR)
@@ -27,28 +32,49 @@ source("src/label-estimation.R")
 source("src/utils.R")
 source("src/evaluation.R")
 
-
 # ── General parameters  ──────────────────────────────────────────────────────────────
-set.seed(2026)
-score_name <- "margin/" # type of non conformity score
+seed <- 2026
+set.seed(seed)
 VFolds <- 3 # folds to split data 
+synthetic_scenario <- TRUE 
 type <- "complex" # additional name for images (here: type of synthetic scenario)
+is_RCT <- FALSE
+RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
+n_samples <- c(6000, 12000, 18000)
 
 random_rate <- seq(0,1,0.1) # random rates to test 
 n_rate <- length(random_rate) # number of random rates to test 
-
 n_test <- 100 # number of repetitions for boxplots
 alphas <- seq(0,1,0.05) # number of confidence levels to test 
 
-is_RCT <- FALSE
-RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
+subdirs <- c("images", "predictions")
+for (subdir in subdirs) {
+  subdir_path <- file.path(root.path, subdir)
+  
+  if (!dir.exists(subdir_path)) {
+    message(sprintf("Creating subdirectory: %s", subdir))
+    dir.create(subdir_path, recursive = TRUE)
+  }
+  if (subdir == "images") {
+    for (img_folder in n_samples) {
+      img_path <- file.path(subdir_path, img_folder)
+      if (!dir.exists(img_path)) {
+        message(sprintf("Creating image subfolder: %s", img_folder))
+        dir.create(img_path, recursive = TRUE)
+      }
+    }
+  }
+}
 
-for (n in c(6000, 12000, 18000)){
-  # ── Set parameters  ───────────────────────────────────────────────────────────
+message("Directory check complete.")
+
+
+for (n in n_samples){
   SL.out<- list() # list where results will be saved 
+  
   # Synthetic data generation 
   ## Training observations 
-  exp <- generate_data(n, type=type, is_RCT=is_RCT)  
+  exp <- generate_data(n, type=type, is_RCT=is_RCT, seed = seed)  
   SL.out$df_obs <- exp[[1]] # extract observational data 
   df_complete <- exp[[2]] # extract complete data (unavailable in real scenarios)
   SL.out$optimal_policy <- exp[[3]] # extract optimal policy (unavailable in real scenarios)
@@ -199,13 +225,18 @@ for (n in c(6000, 12000, 18000)){
   
   SL.out$true_score <- margin_po[cbind(1:nrow(test), SL.out$true_cal)] 
   
-  SL.out$true_score_true <- true_potential_outcomes_test[cbind(1:nrow(test), SL.out$true_cal)]
-  SL.out$true_marginal_scores_new <- SL.out$potential_outcomes
-  
-  source("main_random_rates_synthetic.R")
-  saveRDS(object = SL.out, file = paste0("experts_pred/",score_name, RCT_file, type,"_",n,".rds"))
-  source("R_interest.R")
-  source("main_plots_synthetic.R")
-}
+  if(type=="normal"){
+    margin_true_test <-margin_score(mu_P0_normal(test[,covariates_name]))
+    SL.out$true_marginal_scores_new <- margin_score(mu_P0_normal(SL.out$df_new_sample[,covariates_name]))
+  }else{
+    margin_true_test <- margin_score(mu_P0_simplex_complicated(test[,covariates_name]))
+    SL.out$true_marginal_scores_new <- margin_score(mu_P0_simplex_complicated(SL.out$df_new_sample[,covariates_name]))
+  }
+  SL.out$true_score_true <- margin_true_test[cbind(1:nrow(test), SL.out$true_cal)]
 
-source("explore.R")
+  source("noise_injection.R")
+  saveRDS(object = SL.out, file = paste0("predictions/", type,"_",n,".rds"))
+  source("toy_example/table.R")
+  source("toy_example/metrics_synthetic.R")
+}
+source("toy_example/figures_synthetic.R")
