@@ -37,14 +37,15 @@ seed <- 2026
 set.seed(seed)
 VFolds <- 3 # folds to split data 
 synthetic_scenario <- TRUE 
-type <- "complex" # additional name for images (here: type of synthetic scenario)
+type <- "normal" # additional name for images (here: type of synthetic scenario)
 is_RCT <- FALSE
 RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
 n_samples <- c(6000, 12000, 18000)
+ncov <- 4
+n_test <- 1 
 
 random_rate <- seq(0,1,0.1) # random rates to test 
 n_rate <- length(random_rate) # number of random rates to test 
-n_test <- 100 # number of repetitions for boxplots
 alphas <- seq(0,1,0.05) # number of confidence levels to test 
 
 subdirs <- c("images", "predictions")
@@ -74,20 +75,20 @@ for (n in n_samples){
   
   # Synthetic data generation 
   ## Training observations 
-  exp <- generate_data(n, type=type, is_RCT=is_RCT, seed = seed)  
+  exp <- generate_data(n, ncov = ncov, type=type, is_RCT=is_RCT, seed = seed)  
   SL.out$df_obs <- exp[[1]] # extract observational data 
   df_complete <- exp[[2]] # extract complete data (unavailable in real scenarios)
   SL.out$optimal_policy <- exp[[3]] # extract optimal policy (unavailable in real scenarios)
   SL.out$potential_outcomes <- df_complete %>% select(starts_with("Potential_outcomes."))
   
   ### Test observations 
-  exp_new_sample <- generate_data(n/2, type=type) # generate test observations 
+  exp_new_sample <- generate_data(n/2, ncov=ncov, type=type) # generate test observations 
   SL.out$df_new_sample <- exp_new_sample[[1]]  # extract observational data 
   SL.out$optimal_policy_new <- exp_new_sample[[3]] # extract optimal policy (unavailable in real scenarios)
   SL.out$potential_outcomes <- exp_new_sample[[2]] %>% select(starts_with("Potential_outcomes."))
   
   # ── Define data parameters  ───────────────────────────────────────────────────
-  covariates_name <- c("x1","x2") # name for covariates in dataset
+  covariates_name <- c("X1","X2", "X3", "X4") # name for covariates in dataset
   X <- SL.out$df_obs[,covariates_name] %>% as.matrix() 
   X_new <- SL.out$df_new_sample[,covariates_name] %>% as.matrix()
   
@@ -105,36 +106,7 @@ for (n in n_samples){
   family = ifelse(max(Y) <= 1 & min(Y) >= 0, "binomial", "gaussian") # in [0,1] or beyond 
   SL.out$family = family 
   ab <- c(min(c(Y,Y_new)),max(c(Y,Y_new))) 
-  
-  # ── Define libraries for estimation procedures ────────────────────────────────
-  ## Pseudo-label generation
-  # options : c("polle", "personalized", "mix")
-  expert_technique <- "polle" # indicator of estimation procedure 
-  #### Define the library of experts (Q)
-  if(expert_technique %in% c("polle", "mix")){
-    if(type=="normal"){
-      q_learners <- list() %>%
-        add_qlearner(name = "drql_lm", type = "drql",   q_func = "q_glm", action_name=treatment_name, covariates=covariates_name) 
-    }else{
-      q_learners <- list() %>%
-        add_qlearner(name = "drql_nnet", type = "drql", q_func = "q_sl", sl_library = "SL.nnet", action_name=treatment_name, covariates=covariates_name)
-    }
-    
-    
-    #### Define the propensity score learner (G)
-    g_learner <- glearner(m, g_func = "g_rf", sl_library = NULL, num.trees = 500)  
-  }
-  
-  ## Nonconformity score learner (nuisance)
-  SL.library.nuisance <- c(
-    "SL.mean", 
-    "SL.glm", 
-    "SL.xgboost", 
-    "SL.ksvm",
-    "SL.ranger" 
-    )
-  
-  
+
   # ── 0) Divide data into three even sets ───────────────────────────────────────
   # ── Noisy label generation, scoring model & calibration ───────────────────────
   SL.out$folds <- SuperLearner::CVFolds(n, id = NULL,Y = Y,
@@ -149,6 +121,20 @@ for (n in n_samples){
   
   # ── 1) Generate noisy labels (i.e. estimates of (A*,X)) ───────────────────────
   ## 1.0) True calibration samples (only for synthetic data)
+  
+  ## Pseudo-label generation
+  # options : c("polle", "personalized", "mix")
+  expert_technique <- "polle" # indicator of estimation procedure 
+  #### Define the library of experts (Q)
+  if(expert_technique %in% c("polle", "mix")){
+    q_learners <- list() %>%
+      add_qlearner(name = "drql_lm", type = "drql",   q_func = "q_glm", 
+                   action_name=treatment_name, covariates=covariates_name)
+    
+    #### Define the propensity score learner (G)
+    g_learner <- glearner(m, g_func = "g_rf", sl_library = NULL, num.trees = 500)  
+  }
+  
   SL.out$true_cal<- apply(data.frame(1:nrow(test)),1,function(x){
     el <- optimal_policy_test[[x]]
     length_el <- length(el)
@@ -160,7 +146,7 @@ for (n in n_samples){
   ## 1.2) Estimate A* using experts 
   if(expert_technique!= "personalized"){
     SL.init1 = expert_fit_predict(train1, test, new = SL.out$df_new_sample, 
-                                  covariates = c("x1", "x2"), 
+                                  covariates = covariates_name, 
                                   treatment_name=treatment_name, outcome_name=outcome_name,
                                   qlearners_list = q_learners, g_model=g_learner)
     
@@ -200,6 +186,13 @@ for (n in n_samples){
   
   # 2) Nonconformity score model (on train2)
   # 2.1) Train nuisances 
+  SL.library.nuisance <- c(
+    "SL.mean", 
+    "SL.glm", 
+    "SL.xgboost", 
+    "SL.ksvm",
+    "SL.ranger" 
+  )
   SL.out$QAW.reg.train = SuperLearner::SuperLearner( # Outcome model
     Y=train2[,outcome_name], X = train2[,c(covariates_name,treatment_name)],
     SL.library=SL.library.nuisance, family = SL.out$family) 

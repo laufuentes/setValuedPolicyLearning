@@ -219,16 +219,6 @@ cov_factor_data <- cov_data %>%
 complete_data <- list(spv_means, mean_width_data,cov_factor_data) %>%
   reduce(full_join, by = c("mechanism","level", "type", "size"))
 
-
-# model <- lm(
-#   mean_spv ~
-#     level * mechanism  + type +
-#     size -1,
-#   data = complete_data
-# )
-# 
-# summary(model)
-
 # Random noise 
 plot_data <- complete_data %>%
   mutate(color_group = case_when(
@@ -265,8 +255,8 @@ plot_combined_level <- ggplot(plot_data,
   facet_grid(~size) +
   
   labs(x = expression("Confidence level (" * alpha * ")"),
-       y = "SPV")
-ggplot2::ggsave(plot_combined_level, filename=paste0("images/Combined_level_", type,".pdf"), width = 15, height = 8)
+       y = "Set Policy Value (SPV)")
+ggplot2::ggsave(plot_combined_level, filename=paste0("images/Level_SPV_", type,".pdf"), width = 15, height = 8)
 
 plot_cov_level <- ggplot(plot_data,
                               aes(x = level,
@@ -298,7 +288,7 @@ plot_cov_level <- ggplot(plot_data,
   
   labs(x = expression("Confidence level (" * alpha * ")"),
        y = expression("Coverage attained"))
-ggplot2::ggsave(plot_cov_level, filename=paste0("images/Cov_level_", type,".pdf"), width = 15, height = 8)
+ggplot2::ggsave(plot_cov_level, filename=paste0("images/Level_Coverage_", type,".pdf"), width = 15, height = 8)
  
 plot_combined_cov_factor <- ggplot(plot_data,
                               aes(x = level,
@@ -326,7 +316,66 @@ plot_combined_cov_factor <- ggplot(plot_data,
   scale_size_continuous(name = "Mean width",
                         range = c(0.1, 2)) +
   facet_grid(~ size) +
-  labs(x = "Level",
+  labs(x = expression("Confidence level ("* alpha *")"),
        y = "Marginal coverage factor")
-ggplot2::ggsave(plot_combined_cov_factor, filename=paste0("images/Combined_cov_factor_", type,".pdf"), width = 15, height = 8)
+ggplot2::ggsave(plot_combined_cov_factor, filename=paste0("images/Level_cov_factor_", type,".pdf"), width = 15, height = 8)
 
+plot_combined_level <- ggplot(plot_data,
+                              aes(x = mean_width,
+                                  y = mean_spv)) +
+  
+  geom_line(data = subset(plot_data, mechanism == "Estimated labels"),
+            aes(group = type, color = color_group),
+            alpha = 0.7) +
+  geom_point(aes(size = mean_width, color = color_group),
+             alpha = 0.5, show.legend = c(size=FALSE)) +
+  scale_color_manual(
+    name = "Technique",
+    values = c(
+      stats::setNames(
+        viridisLite::viridis(length(type_vals), option = "magma"),
+        paste0("type_", type_vals)
+      ),
+      "Oracular CP" = "blue",
+      "GLB"  = "green"
+    ),
+    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
+    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
+  ) +
+  scale_size_continuous(name = "Mean width",
+                        range = c(0.1, 2)) +
+  facet_grid(~size) +
+  
+  labs(x = "Mean width",
+       y = "Set Policy Value (SPV)")
+ggplot2::ggsave(plot_combined_level, filename=paste0("images/Mean_width_SPV_", type,".pdf"), width = 15, height = 8)
+
+optimal_treatments <- function(df) {
+    df <- as.matrix(df)
+    mat <- matrix(0, nrow = nrow(df), ncol = ncov)
+    mat[, 1:2] <- df
+    if(type=="normal"){
+      p_o <- mu_P0_normal(mat) 
+    }else{
+      p_o <- mu_P0_simplex_complicated(mat) 
+    }
+    apply(data.frame(1:nrow(mat)), 1, function(i){paste0("{", 
+                                                         paste(which(p_o[i,]==max(p_o[i,])), collapse = ","), "}")})
+}
+  
+df <- tidyr::expand_grid(
+    x = seq(-2, 2, length.out = 500),
+    y = seq(-2, 2, length.out = 500))
+df$optimal_treatments <- optimal_treatments(df)
+
+plot_sythetic_scenario <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, 
+                                         fill = as.factor(optimal_treatments))) +
+    ggplot2::geom_raster() +
+    ggplot2::labs(
+      x = "X1",
+      y = "X2",
+      fill = "Optimal treatments"
+    ) +
+    ggplot2::theme_minimal()
+
+ggplot2::ggsave(plot_sythetic_scenario, filename=paste0("images/Synthetic_data_", type,".pdf"), width = 10, height = 6)

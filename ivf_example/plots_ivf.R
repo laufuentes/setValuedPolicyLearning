@@ -58,8 +58,8 @@ ggplot2::ggsave(ecdf_plot,
 
 mean_width <- array(0, dim=c(length(alphas), 2,
                              ncol(SL.out$rate_cal_labels_unweighted)))
-spv <- array(0, dim=c(length(alphas), n_test, 2, 
-                      ncol(SL.out$rate_cal_labels_unweighted)))
+spv_y_random <- spv_y_min <- spv_xi_random <- spv_xi_min <- array(0, dim=c(length(alphas), n_test, 2,
+                     ncol(SL.out$rate_cal_labels_unweighted)))
 
 heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, 
                              length(alphas),
@@ -87,13 +87,20 @@ for(i in 1:length(alphas)){
     
     mean_width[i,1,r]<- width(pred_set = confidence_set)
     heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
-    spv[i,,1,r] <- bounds_set_policy_value(confidence_set, ab = ab,
+    spv_results <- ivf_set_policy_values(confidence_set, ab = ab,
                                          test= SL.out$df_new, levels=levels_A,
                                          treatment_name = treatment_name,
                                          outcome_name = outcome_name,
                                          covariates = covariates_name, 
+                                         second_outcome = second_outcome_name, 
                                          mod_y=SL.out$QAW.reg.train, 
+                                         mod_xi= SL.out$QxiAW.reg.train, 
                                          mod_ps = SL.out$g.reg.train)
+    spv_y_random[i,,1,r]<- spv_results[["results_random_Y"]]
+    spv_xi_random[i,,1,r]<- spv_results[["results_random_xi"]]
+    spv_y_min[i,,1,r]<- spv_results[["results_min_Y"]]
+    spv_xi_min[i,,1,r]<- spv_results[["results_min_xi"]]
+    
   }
   # greatest lower bound (GLB) 
   lowers <- uppers <- lowers_test <- uppers_test <- matrix(0, 
@@ -116,30 +123,78 @@ for(i in 1:length(alphas)){
   
   mean_width[i,2,]<- width(pred_set = naive.confidence_set)
   heatmaps_r[,,i,r,2] <- heatmap_treatments(naive.confidence_set, levels_A) %>% as.matrix()
-  spv[i,,2,r] <- bounds_set_policy_value(naive.confidence_set, ab = ab,
-                                         test= SL.out$df_new, levels=levels_A,
-                                         treatment_name = treatment_name,
-                                         outcome_name = outcome_name,
-                                         covariates = covariates_name, 
-                                         mod_y=SL.out$QAW.reg.train, 
-                                         mod_ps = SL.out$g.reg.train)
+  spv_results <- ivf_set_policy_values(naive.confidence_set, ab = ab,
+                                       test= SL.out$df_new, levels=levels_A,
+                                       treatment_name = treatment_name,
+                                       outcome_name = outcome_name,
+                                       covariates = covariates_name, 
+                                       second_outcome = second_outcome_name, 
+                                       mod_y=SL.out$QAW.reg.train, mod_xi = SL.out$QxiAW.reg.train,
+                                       mod_ps = SL.out$g.reg.train)
+  spv_y_random[i,,2,]<- spv_results[["results_random_Y"]]
+  spv_xi_random[i,,2,]<- spv_results[["results_random_xi"]]
+  spv_y_min[i,,2,]<- spv_results[["results_min_Y"]]
+  spv_xi_min[i,,2,]<- spv_results[["results_min_xi"]]
   print(i)
 }
 
-results <- list(mean_width= mean_width, spv=spv, heatmaps_r=heatmaps_r)
+results <- list(mean_width= mean_width, spv_y_random=spv_y_random, 
+                spv_xi_random = spv_xi_random, spv_y_min = spv_y_min, 
+                spv_xi_min = spv_xi_min, heatmaps_r=heatmaps_r)
 
 saveRDS(object = results, 
         file = paste0("predictions/plot_results_", type, ".rds"))
 
-spv_data <- dplyr::bind_rows(
-  make_block(1, "Unweighted", results[["spv"]], alphas, random_rate),
-  map_dfr(1:dim(results[["spv"]])[1], function(a) {
+spv_data_Y <- dplyr::bind_rows(
+  make_block(1, "Unweighted", results[["spv_y_random"]], alphas, random_rate) %>% 
+    rename(value_Y=value) %>% 
+    mutate(choice="Random"), 
+  map_dfr(1:dim(results[["spv_y_random"]])[1], function(a) {
     data.frame(
-      value_Y = results[["spv"]][a, ,2,1],
+      value_Y = results[["spv_y_random"]][a, ,2,1],
       mechanism = "GLB",
+      choice = "Random", 
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
-    )})) %>% 
+    )}), 
+  make_block(1, "Unweighted", results[["spv_y_min"]], alphas, random_rate) %>%
+    rename(value_Y = value) %>%
+    mutate(choice="Lowest"), 
+  map_dfr(1:dim(results[["spv_y_min"]])[1], function(a) {
+    data.frame(
+      value_Y = results[["spv_y_min"]][a, ,2,1],
+      mechanism = "GLB",
+      choice = "Lowest",
+      level = paste0(alphas[a]),
+      type = paste0(random_rate[1])
+    )})
+)
+
+spv_data_xi <- bind_rows( make_block(1, "Unweighted", results[["spv_xi_random"]], alphas, random_rate) %>% 
+  rename(value_xi = value) %>% 
+  mutate(choice="Random"), 
+  map_dfr(1:dim(results[["spv_xi_random"]])[1], function(a) {
+  data.frame(
+    value_xi = results[["spv_xi_random"]][a, ,2,1],
+    mechanism = "GLB",
+    choice = "Random", 
+    level = paste0(alphas[a]),
+    type = paste0(random_rate[1])
+  )}),
+  make_block(1, "Unweighted", results[["spv_xi_min"]], alphas, random_rate) %>% 
+  rename(value_xi = value) %>% 
+  mutate(choice="Lowest"), 
+  map_dfr(1:dim(results[["spv_xi_min"]])[1], function(a) {
+  data.frame(
+    value_xi = results[["spv_xi_min"]][a, ,2,1],
+    mechanism = "GLB",
+    choice = "Lowest",
+    level = paste0(alphas[a]),
+    type = paste0(random_rate[1])
+  )}))
+
+spv_data <- list(spv_data_Y, spv_data_xi) %>% 
+  reduce(full_join, by = c("mechanism","level", "type", "choice")) %>%
   mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
@@ -147,20 +202,22 @@ spv_data <- dplyr::bind_rows(
 
 type_vals <- sort(unique(spv_data$type))
 
-spv_classic<- bounds_set_policy_value(SL.out$doptFactorPredict_new, ab = ab,
-                                    test= SL.out$df_new, levels=levels_A,
-                                    treatment_name = treatment_name,
-                                    outcome_name = outcome_name,
-                                    covariates = covariates_name, 
-                                    mod_y=SL.out$QAW.reg.train, 
-                                    mod_ps = SL.out$g.reg.train)
+spv_classic<- ivf_set_policy_values(SL.out$doptFactorPredict_new, ab = ab,
+                                     test= SL.out$df_new, levels=levels_A,
+                                     treatment_name = treatment_name,
+                                     outcome_name = outcome_name,
+                                     covariates = covariates_name, 
+                                     second_outcome = second_outcome_name, 
+                                     mod_y=SL.out$QAW.reg.train, 
+                                    mod_xi = SL.out$QxiAW.reg.train,
+                                     mod_ps = SL.out$g.reg.train)
 
 hline_labels <- data.frame(
-  x = 1, xend = max(spv_data$level), 
-  y = spv_classic,
-  type = c("Classic policy"),  
-  fill = scales::hue_pal()(1))
-
+    x = 1, xend = max(spv_data$level), 
+    y = spv_classic[["results_random_Y"]],
+    type = c("Classic policy"),  
+    fill = scales::hue_pal()(1))
+  
 
 spv_plot <- ggplot2::ggplot(spv_data, 
                             ggplot2::aes(x = factor(level),
@@ -185,6 +242,7 @@ spv_plot <- ggplot2::ggplot(spv_data,
     breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
     labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
   ) +
+  ggplot2::facet_grid(rows=ggplot2::vars(choice)) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
                 y = "Set policy value (SPV)",
                 color = "Legend") +
@@ -193,6 +251,36 @@ spv_plot <- ggplot2::ggplot(spv_data,
 ggplot2::ggsave(spv_plot, 
                 filename=paste0("images/spv_plot_",type,".pdf"), 
                 width = 30, height = 15)
+
+level_choice <- 0.1
+spv_Y_xi_plot <- ggplot2::ggplot(spv_data %>% filter(level==level_choice), 
+                            ggplot2::aes(x = value_Y,
+                                         y= value_xi,
+                                         color = color_group, 
+                                         group=color_group)) +
+  ggplot2::geom_point(aes(shape=choice)) +
+  ggplot2::geom_line(aes(group=color_group))+
+  scale_color_manual(
+    name = "Technique",
+    values = c(
+      stats::setNames(
+        viridisLite::viridis(length(type_vals), option = "magma"),
+        paste0("type_", type_vals)
+      ),
+      "GLB"  = "green"
+    ),
+    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
+    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
+  ) +
+  ggplot2::labs(x = expression("Set policy value ("* Y *")"),
+                y = expression("Set policy value ("* xi *")"),
+                color = "Legend") +
+  ggplot2::theme_minimal()
+
+ggplot2::ggsave(spv_Y_xi_plot, 
+                filename=paste0("images/spv_plot_",type,".pdf"), 
+                width = 30, height = 15)
+
 
 mean_width_data <- dplyr::bind_rows(
   make_smaller_block(1, "Unweighted", results[["mean_width"]], random_rate) %>% 
@@ -206,9 +294,9 @@ mean_width_data <- dplyr::bind_rows(
     dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>% 
     dplyr::ungroup() ) %>% 
   mutate(color_group = case_when(
-    mechanism == "Unweighted" ~ paste0("type_", type),
-    mechanism == "GLB" ~ "GLB"
-  ))
+  mechanism == "Unweighted" ~ paste0("type_", type),
+  mechanism == "GLB" ~ "GLB"
+))
 
 mean_width_plot <- ggplot2::ggplot(data=mean_width_data, 
                                    ggplot2::aes(x=factor(levels), y=value, 

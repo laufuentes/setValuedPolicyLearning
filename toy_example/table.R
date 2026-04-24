@@ -9,9 +9,9 @@ train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
 test <-  SL.out$df_obs[SL.out$folds[[3]],]
 
 
-alpha <- 0.05
+alpha <- 0.1
 # levels of noise
-r_levels <- c(1,4,7,11)
+r_levels <- c(1,3,6,11)
 cov_unif<- mean_width <- matrix(0, ncol = length(r_levels)+2)
 confidence_sets <- list()
 
@@ -84,24 +84,30 @@ treatment_labels <- sapply(types_optimal_treatment, function(x) {
 })
 
 library(xtable)
-results_df <- as.data.frame(prop_inclusion_type_treatment) %>% round(3)
-colnames(results_df) <- c("Oracular", 
+results_df <- as.data.frame(prop_inclusion_type_treatment)
+colnames(results_df) <- c("Oracular CP", 
                           apply(data.frame(1:length(r_levels)), 
                                 1, 
-                                function(i)paste0("r=",random_rate[r_levels[i]])),
+                                function(i)paste0("$r=$",random_rate[r_levels[i]])),
                           "GLB")
 results_df <- cbind("Optimal Treatment" = treatment_labels, results_df)  
-total_row <- c(paste0("Coverage ($\\alpha$ = ", alpha, ")"), cov_unif %>% round(3))
-width_row <- c("Mean width", mean_width %>% round(3))
+total_row <- c(paste0("Coverage ($\\alpha$ = ", alpha, ")"), cov_unif)
+width_row <- c("Mean cardinality", mean_width)
 
-results_df <- rbind(results_df, total_row, width_row) 
+results_df <- rbind(results_df, total_row, width_row)
+results_df[,-1] <- lapply(results_df[,-1], function(x) as.numeric(as.character(x)))
+
+# 2. Apply the 1.2f format to all numeric columns
+results_df[,-1] <- lapply(results_df[,-1], function(x) sprintf("%1.2f", x))
 
 addline <- list()
 addline$pos <- list(nrow(results_df) - 2, nrow(results_df)-1)
 addline$command <- rep("\\hline \n", 2)
 
 # 3. Print the LaTeX Code
-print(xtable(results_df, align =  paste0("ll", paste(rep("c", ncol(results_df) - 1), collapse = ""))), 
+print(xtable(results_df,
+             align =  paste0("ll", paste(rep("c", ncol(results_df) - 1), 
+                                                     collapse = ""))), 
       include.rownames = FALSE, 
       hline.after = c(-1, 0, nrow(results_df)), 
       add.to.row = addline, 

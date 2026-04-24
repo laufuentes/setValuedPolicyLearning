@@ -28,10 +28,10 @@ baseline_effect <- function(X){
 #' mu_P0_normal(X)
 #' @export
 mu_P0_normal <- function(X){
-  out <- matrix(1, nrow=nrow(X), ncol=5)*baseline_effect(X)
-  cond <- (X[,1]+X[,2]<0.5)
-  out[cond, 1:2] <- out[cond, 1:2] + exp(X[cond,1])
-  out[!cond, 3:4] <- out[!cond, 3:4] + 2*(X[!cond,2])^2
+  out <- matrix(baseline_effect(X), nrow = nrow(X), ncol = 5)
+  cond <- (X[, 1] + X[, 2] < 0.5)
+  out[cond, 1:2]  <- out[cond, 1] + 5 * exp(X[cond, 1])
+  out[!cond, 3:4] <- out[!cond, 3] + 5 * (X[!cond, 2]+ 1)^2
   return(out)
 }
 
@@ -52,21 +52,20 @@ mu_P0_simplex_complicated <- function(X){
   out <- matrix(1, nrow=nrow(X), ncol=5)*baseline_effect(X)
   
   cond1 <- (X[,1]^2 + X[,2]^2) < 0.5
-  out[cond1, ] <- out[cond1, ] + 5
   out[cond1, 5] <- out[cond1, 5] + 0.25*stats::rbinom(n=length(out[cond1, 5]), 
                                                       size=1, prob=0.5)
   
   cond2 <- (!cond1) & (X[,1] > 0) & (X[,2] > 0)
-  out[cond2, 1] <- out[cond2, 1] + 4*abs(X[cond2,1])
+  out[cond2, 1] <- out[cond2, 1] + 2*abs(X[cond2,1])
   
   cond3 <- (!cond1) & (X[,1] <= 0) & (X[,2] > 0)
-  out[cond3, 2] <- out[cond3, 2] + 4
+  out[cond3, 2] <- out[cond3, 2] + exp(X[cond3,2])
   
   cond4 <- (!cond1) & (X[,1] > 0) & (X[,2] <= 0)
-  out[cond4, 3] <- out[cond4, 3] + 5
+  out[cond4, 3] <- out[cond4, 3] + 2*exp(X[cond4,1]^{2})
   
   cond5 <- (!cond1) & (X[,1] <= 0) & (X[,2] <= 0)
-  out[cond5, 4] <- out[cond5, 4] + exp(X[cond5, 2])
+  out[cond5, 4] <- out[cond5, 4] + (X[cond5, 2]+2)
   return(out)
 }
 
@@ -144,20 +143,18 @@ generate_data <- function(n, ncov=2, seed=NA, type=c("normal", "complex"), is_RC
   }else{
     potential_outcomes <- mu_P0_normal(X)
   }
-   Y_obs <- rowSums(potential_outcomes*A) + rnorm(n, sd = 1)
+   Y_obs <- rowSums(potential_outcomes*A) + 0.5*rnorm(n, sd = 1)
    optimal_policy <- lapply(seq_len(nrow(potential_outcomes)),
                             function(i){
                               which(potential_outcomes[i, ] == max(potential_outcomes[i, ]))})
    df <- data.frame(
-     x1 = X[,1],
-     x2 = X[,2],
+     X,
      A = A_factor,
      Y = Y_obs
    )
    
    df_complete <- data.frame(
-     x1 = X[,1],
-     x2 = X[,2],
+     X,
      A = A_factor,
      Y = Y_obs, 
      Potential_outcomes = potential_outcomes)

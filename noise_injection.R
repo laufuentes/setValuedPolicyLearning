@@ -1,4 +1,3 @@
-
 SL.out$rate_cal_labels_unweighted <- SL.out$rate_scores_unweighted_cal<- matrix(0,nrow=nrow(test), ncol=n_rate)
 SL.out$rate_scores_unweighted_true <- matrix(0,nrow=nrow(test), ncol=n_rate)
 
@@ -13,8 +12,6 @@ for(i in 1:n_rate){
     SL.out$rate_scores_unweighted_true[,i] <- margin_true_test[cbind(1:nrow(test), SL.out$rate_cal_labels_unweighted[,i])]
   }
 }
-
-SL.out$rate_cal_labels_behavioral <- margin_po[cbind(1:nrow(test), test[,treatment_name])]
 
 data_toghether <- dplyr::bind_rows(
   lapply(1:ncol(SL.out$rate_scores_unweighted_cal), function(i) {
@@ -48,12 +45,10 @@ if(synthetic_scenario){
 
 SL.out$data_toghether <- data_toghether
 
-
+SL.out$rate_cal_labels_behavioral <- margin_po[cbind(1:nrow(test), test[,treatment_name])]
 behavioral_data <-  dplyr::bind_rows(
   data.frame(
     value = SL.out$rate_cal_labels_behavioral,
     model = "Estimated score",
     mechanism = "Unweighted",
     type = 0))
-
-

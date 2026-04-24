@@ -1,38 +1,3 @@
-#' Average Jaccard distance for prediction sets
-#'
-#' Computes the average Jaccard Distance between a true set of labels and 
-#' a predicted set of labels. The distance is defined as `1 - (intersection / union)`.
-#'
-#' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
-#' @param pred_set A `list` of numeric or character vectors representing the predicted sets.
-#' @param levels Vector of possible treatment levels. Defaults to `1:5`.
-#'
-#' @return A numeric value representing the mean Jaccard Distance across all observations.
-#' @export
-#'
-#' @examples
-#' true <- list(c(1, 2), c(3))
-#' pred <- list(c(1, 3), c(3))
-#' jaccard_distance(true, pred)
-jaccard_distance <- function(true_set, pred_set, levels=1:5){
-  if(!(is.list(pred_set) & is.list(true_set))){
-    msg_list <- paste("Sets are not lists")
-    warning(msg_list)
-  }
-  if(!(length(pred_set)== length(true_set))){
-    msg_length_list <- paste("Sets of different size")
-    warning(msg_length_list)
-  }
-  n <- length(true_set)
-  jac_index <- matrix(0, nrow=n)
-  for(i in 1:n){
-    intersection <- length(intersect(true_set[[i]], pred_set[[i]]))
-    union <- length(union(true_set[[i]], pred_set[[i]]))
-    jac_index[i] <- 1 - (intersection / union)
-  }
-  mean(jac_index)
-}
-
 #' Average uniform coverage
 #'
 #' Computes the average proportion of the true set that is contained within 
@@ -63,67 +28,6 @@ coverage_unif <- function(true_set, pred_set) {
   }
   
   total / n
-}
-
-#' Average width of prediction set 
-#'
-#' Computes the mean width the predicted set. 
-#'
-#' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
-#' @param levels Vector of possible treatment levels. Defaults to `1:5`.
-#'
-#' @return A numeric value representing the mean of the prediction set across all observations.
-#' @export
-#'
-#' @examples
-#' pred <- list(c(1), c(3, 4))
-#' width(pred)
-width <- function(pred_set, levels=1:5){
-  if(!(is.list(pred_set))){
-    msg_list <- paste("Sets are not lists")
-    warning(msg_list)
-  }
-  n <- length(pred_set)
-  m_width <- matrix(0, nrow=n)
-  for(i in 1:n){
-    m_width[i] <- length(pred_set[[i]])
-  }
-  mean(m_width)
-}
-
-#' Coverage
-#'
-#' Computes the average proportion of the true set that is contained within 
-#' the predicted set. This represents the average recall across all observations.
-#' 
-#' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
-#' @param pred_set A `list` of numeric or character vectors representing the predicted sets.
-#'
-#' @return A numeric value representing the mean coverage (proportion of 
-#'   intersected elements over true set size) across all observations.
-#' @export
-#'
-#' @examples
-#' true <- list(c(1, 2), c(3))
-#' pred <- list(c(1), c(3, 4))
-#' coverage(true, pred)
-coverage <- function(true_set, pred_set){
-  if(!(is.list(pred_set) & is.list(true_set))){
-    msg_list <- paste("Sets are not lists")
-    warning(msg_list)
-  }
-  if(!(length(pred_set)== length(true_set))){
-    msg_length_list <- paste("Sets of different size")
-    warning(msg_length_list)
-  }
-  n <- length(true_set)
-  coverage <- matrix(0, nrow=n)
-  for(i in 1:n){
-    intersection <- length(intersect(true_set[[i]], pred_set[[i]]))
-    size_true <- length(true_set[[i]])
-    coverage[i] <- intersection / size_true
-  }
-  mean(coverage)
 }
 
 #' Average relaxed coverage
@@ -216,6 +120,32 @@ coverage_strict <- function(true_set, pred_set, levels=1:5){
   mean(coverage)
 }
 
+#' Average width of prediction set 
+#'
+#' Computes the mean width the predicted set. 
+#'
+#' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
+#' @param levels Vector of possible treatment levels. Defaults to `1:5`.
+#'
+#' @return A numeric value representing the mean of the prediction set across all observations.
+#' @export
+#'
+#' @examples
+#' pred <- list(c(1), c(3, 4))
+#' width(pred)
+width <- function(pred_set, levels=1:5){
+  if(!(is.list(pred_set))){
+    msg_list <- paste("Sets are not lists")
+    warning(msg_list)
+  }
+  n <- length(pred_set)
+  m_width <- matrix(0, nrow=n)
+  for(i in 1:n){
+    m_width[i] <- length(pred_set[[i]])
+  }
+  mean(m_width)
+}
+
 policy_value_tmle<- function(random_policy, test, 
                             mod_y, mod_ps, 
                             ab, covariates=c("x1","x2"), 
@@ -254,7 +184,7 @@ bounds_set_policy_value <- function(test_set, test,
                                     mod_y,
                                     treatment_name = "A",
                                     outcome_name = "Y",
-                                    mod_ps, ab, n_test = 100,
+                                    mod_ps, ab, n_test = 1,
                                     covariates = c("x1","x2"),
                                     levels) {
   
@@ -270,7 +200,7 @@ bounds_set_policy_value <- function(test_set, test,
     allowed <- test_set[[i]]
     
     if (length(allowed) > 0) {
-      random_policy[i, ] <- sample(allowed, n_test, replace = TRUE)
+      random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
     } else {
       random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
     }
@@ -319,7 +249,7 @@ bounds_set_policy_value <- function(test_set, test,
 oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
                                     treatment_name = "A",
                                     outcome_name = "Y",
-                                     n_test = 100,
+                                     n_test = 1,
                                     covariates = c("x1","x2"),
                                     levels) {
   
@@ -335,7 +265,7 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
     allowed <- test_set[[i]]
     
     if (length(allowed) > 0) {
-      random_policy[i, ] <- sample(allowed, n_test, replace = TRUE)
+      random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
     } else {
       random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
     }
@@ -351,3 +281,77 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
   results
 }
 
+
+ivf_set_policy_values <- function(test_set, test, 
+                                    mod_y, mod_xi, mod_ps, 
+                                    treatment_name = "A",
+                                    outcome_name = "Y", second_outcome ="xi",
+                                    ab, levels, n_test=1,
+                                    covariates = c("x1","x2")) {
+  
+  n <- nrow(test)
+  m <-length(levels)
+  row_idx <- seq_len(n)
+  col_offset <- (0:(m - 1)) * n
+  random_policy <- matrix(NA_integer_, n, n_test)
+  lowest_policy <- matrix(NA_integer_, n, n_test)
+  for (i in seq_len(n)) {
+    allowed <- test_set[[i]]
+    if (length(allowed) > 0) {
+      random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
+      lowest_policy[i, ] <- min(allowed)
+    } else {
+        random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
+        lowest_policy[i, ] <- 1
+        }}
+
+  gAW.pred <- stats::predict(
+    mod_ps,
+    newdata = test[, covariates, drop = FALSE],
+    type = "prob")
+  gAW_bounded <- pmax(gAW.pred, 0.01)
+  
+  base_newdata <- test[, covariates, drop = FALSE]
+  
+  get_Q <- function(mod) {
+    sapply(levels, function(a) {
+      newdata_temp <- base_newdata
+      newdata_temp[[treatment_name]] <- factor(a, levels = levels)
+      stats::predict(mod, newdata = newdata_temp, type = "response")$pred
+    })
+  }
+  
+  Q_all_Y  <- get_Q(mod_y)
+  Q_all_xi <- get_Q(mod_xi)
+  
+  # 2. Extract common variables
+  test_A <- test[,treatment_name]
+  Y_vec  <- test[,outcome_name]
+  xi_vec <- test[,second_outcome]
+  
+  compute_psi <- function(policy_mat, outcome_vec, Q_mat) {
+    # Overhead check: Don't fork processes if n_test is 1
+    if (n_test <= 1) {
+      d <- policy_mat[, 1]
+      lin_idx <- row_idx + col_offset[d]
+      return(SL.ODTR::tmle.d.fun(A = test_A, Y = outcome_vec, d = d, 
+                                 Qd = Q_mat[lin_idx], gAW = gAW_bounded[lin_idx], 
+                                 ab = ab)$psi)
+    }
+  
+    unlist(parallel::mclapply(seq_len(n_test), function(p) {
+      d <- policy_mat[, p]
+      lin_idx <- row_idx + col_offset[d]
+      SL.ODTR::tmle.d.fun(A = test_A, Y = outcome_vec, d = d, 
+                          Qd = Q_mat[lin_idx], gAW = gAW_bounded[lin_idx], 
+                          ab = ab)$psi
+    }, mc.cores = parallel::detectCores()))
+  } 
+    
+  list(
+    results_random_Y  = compute_psi(random_policy, Y_vec,  Q_all_Y),
+    results_random_xi = compute_psi(random_policy, xi_vec, Q_all_xi),
+    results_min_Y     = compute_psi(lowest_policy, Y_vec,  Q_all_Y),
+    results_min_xi    = compute_psi(lowest_policy, xi_vec, Q_all_xi)
+  )
+}

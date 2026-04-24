@@ -76,7 +76,7 @@ ggplot2::ggsave(ecdf_plot,
 cov_unif <- mean_width <- cov_relaxed <- array(0, dim=c(length(alphas), 3,
                                                          ncol(SL.out$rate_cal_labels_unweighted)))
 
-spv<- array(0, dim=c(length(alphas), n_test, 3,
+spv<- array(0, dim=c(length(alphas), 1, 3,
                                   ncol(SL.out$rate_cal_labels_unweighted)))
 heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),ncol(SL.out$rate_cal_labels_unweighted),3))
 
