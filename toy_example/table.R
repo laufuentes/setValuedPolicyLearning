@@ -90,7 +90,7 @@ colnames(results_df) <- c("Oracular CP",
                                 1, 
                                 function(i)paste0("$r=$",random_rate[r_levels[i]])),
                           "GLB")
-results_df <- cbind("Optimal Treatment" = treatment_labels, results_df)  
+results_df <- cbind("Optimal Treatments" = treatment_labels, results_df)  
 total_row <- c(paste0("Coverage ($\\alpha$ = ", alpha, ")"), cov_unif)
 width_row <- c("Mean cardinality", mean_width)
 

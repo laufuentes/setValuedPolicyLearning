@@ -62,10 +62,10 @@ mu_P0_simplex_complicated <- function(X){
   out[cond3, 2] <- out[cond3, 2] + exp(X[cond3,2])
   
   cond4 <- (!cond1) & (X[,1] > 0) & (X[,2] <= 0)
-  out[cond4, 3] <- out[cond4, 3] + 2*exp(X[cond4,1]^{2})
+  out[cond4, 3] <- out[cond4, 3] + 2*exp(X[cond4,1])
   
   cond5 <- (!cond1) & (X[,1] <= 0) & (X[,2] <= 0)
-  out[cond5, 4] <- out[cond5, 4] + (X[cond5, 2]+2)
+  out[cond5, 4] <- out[cond5, 4] + (X[cond5, 2]+1)^{2}
   return(out)
 }
 

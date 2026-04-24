@@ -321,7 +321,7 @@ mean_width_plot <- ggplot2::ggplot(data=mean_width_data,
     labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
   ) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"), 
-                y = "Mean width") +
+                y = "Mean cardinality") +
   ggplot2::theme_minimal()
 
 ggplot2::ggsave(mean_width_plot, 

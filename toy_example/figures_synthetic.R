@@ -346,9 +346,37 @@ plot_combined_level <- ggplot(plot_data,
                         range = c(0.1, 2)) +
   facet_grid(~size) +
   
-  labs(x = "Mean width",
+  labs(x = "Mean cardinality",
        y = "Set Policy Value (SPV)")
 ggplot2::ggsave(plot_combined_level, filename=paste0("images/Mean_width_SPV_", type,".pdf"), width = 15, height = 8)
+
+plot_mean_level<- ggplot(plot_data,
+                              aes(x = level,
+                                  y = mean_width, 
+                                  color = color_group)) +
+  
+  geom_line(aes(group = color_group),
+            alpha = 0.7) +
+  geom_point(aes(color = color_group),alpha = 0.5) +
+  scale_color_manual(
+    name = "Technique",
+    values = c(
+      stats::setNames(
+        viridisLite::viridis(length(type_vals), option = "magma"),
+        paste0("type_", type_vals)
+      ),
+      "Oracular CP" = "blue",
+      "GLB"  = "green"
+    ),
+    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
+    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
+  ) +
+  facet_grid(~size) +
+  
+  labs(x = expression("Confidence level ("* alpha *")"),
+       y = "Mean cardinality")
+ggplot2::ggsave(plot_mean_level, filename=paste0("images/Mean_width_level_", type,".pdf"), width = 15, height = 8)
+
 
 optimal_treatments <- function(df) {
     df <- as.matrix(df)

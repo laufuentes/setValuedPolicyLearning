@@ -37,7 +37,7 @@ seed <- 2026
 set.seed(seed)
 VFolds <- 3 # folds to split data 
 synthetic_scenario <- TRUE 
-type <- "normal" # additional name for images (here: type of synthetic scenario)
+type <- "complex" # additional name for images (here: type of synthetic scenario)
 is_RCT <- FALSE
 RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
 n_samples <- c(6000, 12000, 18000)
