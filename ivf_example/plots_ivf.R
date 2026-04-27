@@ -100,7 +100,6 @@ for(i in 1:length(alphas)){
     spv_xi_random[i,,1,r]<- spv_results[["results_random_xi"]]
     spv_y_min[i,,1,r]<- spv_results[["results_min_Y"]]
     spv_xi_min[i,,1,r]<- spv_results[["results_min_xi"]]
-    
   }
   # greatest lower bound (GLB) 
   lowers <- uppers <- lowers_test <- uppers_test <- matrix(0, 
@@ -239,8 +238,8 @@ spv_plot <- ggplot2::ggplot(spv_data,
       ),
       "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
-    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
+    breaks = c(paste0("type_", type_vals), "GLB"),
+    labels = c(paste0("r = ", type_vals), "GLB")
   ) +
   ggplot2::facet_grid(rows=ggplot2::vars(choice)) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
@@ -269,8 +268,8 @@ spv_Y_xi_plot <- ggplot2::ggplot(spv_data %>% filter(level==level_choice),
       ),
       "GLB"  = "green"
     ),
-    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
-    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
+    breaks = c(paste0("type_", type_vals),  "GLB"),
+    labels = c(paste0("r = ", type_vals), "GLB")
   ) +
   ggplot2::labs(x = expression("Set policy value ("* Y *")"),
                 y = expression("Set policy value ("* xi *")"),

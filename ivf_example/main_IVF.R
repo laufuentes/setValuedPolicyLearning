@@ -68,9 +68,6 @@ n<- nrow(SL.out$df_obs)  # number of observations for training CP.
 
 SL.out$df_new_sample <- NULL # subsample of all data for generating prediction sets (here 1/4 remaining)
 
-SL.out$optimal_policy <- NULL
-SL.out$optimal_policy_new <- NULL
-
 # ── Define data parameters  ───────────────────────────────────────────────────
 covariates_name <- # name for covariates in dataset
 X <- SL.out$df_obs[,covariates_name] %>% as.matrix() 
@@ -123,6 +120,7 @@ SL.out$libraryNames <- NULL # macf
 numalgs <- length(SL.out$libraryNames) 
 
 # Note: predictions need to be of same form as in SL.out$df_obs[,treatment_name] (i.e. factor)
+#source("estimate_macf.R")
 SL.out$doptFactorPredict_test <- NULL # replace with predictions on calibration 
 SL.out$doptFactorPredict_new <- NULL # replace with predictions on new
 
@@ -132,8 +130,7 @@ unweighted_probs <- weighted_probs_experts(fitted_experts = SL.out$doptFactorPre
                                            df_pred = test, 
                                            levels = as.numeric(levels_A))
 unweighted_cal <- apply(
-  apply(unweighted_probs, 1, function(x){rmultinom(1, 1, prob=x)}), 
-  2, which.max)
+  apply(unweighted_probs, 1, function(x){rmultinom(1, 1, prob=x)}), 2, which.max)
 
 # 2) Nonconformity score model (on train2)
 SL.library.nuisance <- c(
@@ -142,6 +139,7 @@ SL.library.nuisance <- c(
   "SL.xgboost", 
   "SL.ranger", 
   "SL.ksvm")
+
 # 2.1) Train nuisances 
 ## Outcome model
 SL.out$QAW.reg.train = SuperLearner::SuperLearner( 
@@ -175,4 +173,4 @@ SL.out$new_scores <- margin_score(potential_outcomes_new)  # score for all poten
 
 source("noise_injection.R")
 saveRDS(object = SL.out, file = paste0("predictions/", type, ".rds"))
-source("plots.R")
+source("plots_ivf.R")
