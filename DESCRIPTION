@@ -1,0 +1,10 @@
+Package: setValuedPolicyLearning
+Title: Conformal set-valued policy learning
+Version: 0.0.0.9000
+Authors@R: 
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Description: Learn conformal set-valued policies with coverage guarantees. 
+License: `use_gpl3_license()`
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

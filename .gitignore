@@ -3,5 +3,9 @@
 .Rhistory
 .Rproj.user/
 *.rds
-predictions/*.rds
-images/
+inst/predictions/*.rds
+inst/images/
+.Rproj.user
+.positai
+inst/images/
+inst/predictions/

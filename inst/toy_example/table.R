@@ -72,13 +72,8 @@ for(c in 1:length(confidence_sets)) {
   all_coverage <- mapply(coverage_strict_single, 
                          SL.out$optimal_policy_new, 
                          confidence_sets[[c]])
-  
-  # Group by type and calculate the mean (proportion)
-  # Ensure obs_types matches the rows of your matrix
   prop_inclusion_type_treatment[, c] <- tapply(all_coverage, obs_types, mean)
 }
-
-# Create data frame
 treatment_labels <- sapply(types_optimal_treatment, function(x) {
   paste0("\\{", paste(x, collapse = ", "), "\\}")
 })
@@ -96,15 +91,12 @@ width_row <- c("Mean cardinality", mean_width)
 
 results_df <- rbind(results_df, total_row, width_row)
 results_df[,-1] <- lapply(results_df[,-1], function(x) as.numeric(as.character(x)))
-
-# 2. Apply the 1.2f format to all numeric columns
 results_df[,-1] <- lapply(results_df[,-1], function(x) sprintf("%1.2f", x))
 
 addline <- list()
 addline$pos <- list(nrow(results_df) - 2, nrow(results_df)-1)
 addline$command <- rep("\\hline \n", 2)
 
-# 3. Print the LaTeX Code
 print(xtable(results_df,
              align =  paste0("ll", paste(rep("c", ncol(results_df) - 1), 
                                                      collapse = ""))), 
@@ -112,5 +104,5 @@ print(xtable(results_df,
       hline.after = c(-1, 0, nrow(results_df)), 
       add.to.row = addline, 
       sanitize.text.function = function(x) x, 
-      file = paste0("images/", n, "/", "Table_coverage_", type, ".txt")) 
+      file = paste0("inst/images/", n, "/", "Table_coverage_", type, ".txt")) 
 

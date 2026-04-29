@@ -317,8 +317,8 @@ weighted_probs_experts <- function(df_pred, fitted_experts, weights, levels=1:5)
   
   scores <- matrix(rep(0,n*l),nrow=n,ncol=l)
   for(a in levels) {
-    pi_ax <- one_hot_experts[,,a]
-    scores[,a] <- as.vector(weights%*%t(pi_ax))
-  }
+      pi_ax <- one_hot_experts[,,a]
+      scores[,a] <- as.vector(weights%*%t(pi_ax))
+    }
   return(scores)
 }
