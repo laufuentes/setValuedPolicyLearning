@@ -4,7 +4,7 @@ This repository provides an R package framework for Set-Valued Policy Learning,
 alongside all scripts necessary to reproduce the figures and results presented 
 in the manuscript.
 
-## 
+## Introduction
 We implement set-valued policy learning as proposed in [1], where 
 the learning algorithm outputs a set of candidate treatments rather than a single 
 decision. This approach is designed to provide formal coverage guarantees—ensuring 
