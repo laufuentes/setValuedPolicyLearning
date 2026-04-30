@@ -1,3 +1,43 @@
+#' Learn set valued policies
+#'
+#' Generates set-valued policies using Greatest Lower Bound and conformal 
+#' approach based on noisy labels. 
+#'
+#' @param X A numeric matrix of covariates. Categorical variables must be 
+#'   pre-processed (e.g., one-hot encoded).
+#' @param A A factor vector representing the observed treatment assignments.
+#' @param Y A numeric vector or matrix of primary outcomes.
+#' @param X_test A numeric matrix of covariates for the test/evaluation set.
+#' @param A_test A factor vector of treatment assignments for the test set.
+#' @param Y_test A numeric vector or matrix of outcomes for the test set.
+#' @param random_rate A numeric vector of randomness levels for the conformal 
+#'   approach. Defaults to `c(0, 0.2, 0.5)`.
+#' @param alphas A numeric vector of significance levels (1 - confidence) used 
+#'   to construct the set-valued policies.
+#' @param VFolds Integer specifying the number of cross-validation folds. 
+#'   Currently must be set to `3L`.
+#' @param label_generation A list of configurations for noisy label generation 
+#'   (via the \code{polle} package). Each list element should contain:
+#'   \itemize{
+#'     \item \code{type}: Type of learner: \code{"drql"} (Doubly Robust), 
+#'       \code{"ql"} (Q-learning), or \code{"plt"} (Policy Tree).
+#'     \item \code{q_func}: ML model for the Q-function: \code{"q_glm"}, 
+#'       \code{"q_rf"}, \code{"q_sl"}, \code{"q_xgboost"}, or \code{"q_glmnet"}.
+#'     \item \code{sl_library}: Character vector of learners (only required 
+#'       if \code{q_func = "q_sl"}).
+#'   }
+#'   Defaults to a list of DR-QL with GLM and SuperLearner (XGBoost).
+#' @param SL.library.nuisance Character vector of SuperLearner libraries used 
+#'   to estimate nonconformity scores (nuisance functions). 
+#'   Defaults to \code{c("SL.mean", "SL.glm", "SL.ranger", "SL.xgboost")}.
+#'  
+#' @return A list with the following components:
+#' \item{SL.out}{A list containing the features and models used during training.}
+#' \item{confidence_sets}{A nested list containing the resulting set-valued 
+#'   policies: \code{GLB} for the Greatest Lower Bound approach, and 
+#'   \code{conformal} for results across different \code{random_rate} values.}
+#'
+#' @export
 learn_set_valued_policies <- function(X, A, Y, X_test, A_test, Y_test,
                                       random_rate=c(0,0.2,0.5),
                                       alphas = seq(0,0.5,0.05), VFolds=3,

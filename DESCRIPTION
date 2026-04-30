@@ -12,3 +12,21 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+Imports: 
+    data.table,
+    dplyr,
+    ggplot2,
+    grf,
+    gridExtra,
+    parallel,
+    policytree,
+    polle,
+    purrr,
+    R.utils,
+    scales,
+    SL.ODTR,
+    stats,
+    SuperLearner,
+    tibble,
+    tidyr,
+    viridisLite

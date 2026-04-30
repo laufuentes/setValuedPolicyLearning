@@ -114,20 +114,20 @@ make_smaller_bigger_block <- function(mech_index, mech_name, array_a, alpha_vec,
 #' @param levels_A String label for the mechanism.
 #' @export
 heatmap_treatments <- function(confidence_set, levels_A){
-  df <- tibble(
+  df <- tibble::tibble(
     row_id = 1:length(confidence_set),
     val = confidence_set
   ) %>%
-    unnest(val, keep_empty = TRUE) %>%
-    mutate(
+    tidyr::unnest(val, keep_empty = TRUE) %>%
+    dplyr::mutate(
       val = factor(val, levels = levels_A),
       exists = 1
     ) %>%
-    pivot_wider(
+    tidyr::pivot_wider(
       names_from = val,
       values_from = exists,
       values_fill = 0,
       names_expand = TRUE
-    ) %>% select(any_of(levels_A))
+    ) %>% dplyr::select(any_of(levels_A))
   return(df)
 }

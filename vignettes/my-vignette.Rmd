@@ -122,7 +122,7 @@ label_generation = list(list(type = "drql", q_func = "q_glm"),
                          list(type = "drql", q_func = "q_sl", sl_library = "SL.xgboost"))
 ```
 
-Run the algorithm 
+Run the algorithm to learn set-valued policies: 
 ```{r, eval=FALSE}
 results <- learn_set_valued_policies(X = X, A = A, Y = Y, X_test = X_test, 
                                      A_test = A_test, Y_test = Y_test, 
@@ -131,7 +131,7 @@ results <- learn_set_valued_policies(X = X, A = A, Y = Y, X_test = X_test,
                                      label_generation = label_generation, 
                                      SL.library.nuisance = SL.library_nuissance)
 ```
-Extract confidence sets 
+Extract important features and learnt set-valued policies: 
 ```{r, eval=FALSE}
 # Extract important features 
 SL.out <- results[["SL.out"]]
@@ -153,7 +153,7 @@ print("randomness levels: ")
 print(svp_C$`alpha=0.1` %>% names())
 ```
 
-Evaluate confidence sets generate at confidence level $\alpha=0.1$
+Evaluate set-valued policies at confidence level $\alpha=0.1$
 ```{r, eval=FALSE}
 # uniform set-policy value of GLB 
 n_test <- 10 # number of random policies sampled

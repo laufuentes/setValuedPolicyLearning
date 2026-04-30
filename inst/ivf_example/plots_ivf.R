@@ -150,9 +150,9 @@ saveRDS(object = results,
 # Set-policy value results for primary outcome (Y)
 spv_data_Y <- dplyr::bind_rows(
   make_block(1, "Unweighted", results[["spv_y_random"]], alphas, random_rate) %>%
-    rename(value_Y=value) %>%
-    mutate(choice="Random"),
-  map_dfr(1:dim(results[["spv_y_random"]])[1], function(a) {
+    dplyr::rename(value_Y=value) %>%
+    dplyr::mutate(choice="Random"),
+  purrr::map_dfr(1:dim(results[["spv_y_random"]])[1], function(a) {
     data.frame(
       value_Y = results[["spv_y_random"]][a, ,2,1],
       mechanism = "GLB",
@@ -163,7 +163,7 @@ spv_data_Y <- dplyr::bind_rows(
   make_block(1, "Unweighted", results[["spv_y_min"]], alphas, random_rate) %>%
     rename(value_Y = value) %>%
     mutate(choice="Lowest"),
-  map_dfr(1:dim(results[["spv_y_min"]])[1], function(a) {
+  purrr::map_dfr(1:dim(results[["spv_y_min"]])[1], function(a) {
     data.frame(
       value_Y = results[["spv_y_min"]][a, ,2,1],
       mechanism = "GLB",
@@ -174,10 +174,11 @@ spv_data_Y <- dplyr::bind_rows(
 )
 
 # Set-policy value results for second outcome (xi)
-spv_data_xi <- bind_rows( make_block(1, "Unweighted", results[["spv_xi_random"]], alphas, random_rate) %>%
-  rename(value_xi = value) %>%
-  mutate(choice="Random"),
-  map_dfr(1:dim(results[["spv_xi_random"]])[1], function(a) {
+spv_data_xi <- dplyr::bind_rows( 
+  make_block(1, "Unweighted", results[["spv_xi_random"]], alphas, random_rate) %>%
+    dplyr::rename(value_xi = value) %>%
+    dplyr::mutate(choice="Random"),
+  purrr::map_dfr(1:dim(results[["spv_xi_random"]])[1], function(a) {
   data.frame(
     value_xi = results[["spv_xi_random"]][a, ,2,1],
     mechanism = "GLB",
@@ -186,9 +187,9 @@ spv_data_xi <- bind_rows( make_block(1, "Unweighted", results[["spv_xi_random"]]
     type = paste0(random_rate[1])
   )}),
   make_block(1, "Unweighted", results[["spv_xi_min"]], alphas, random_rate) %>%
-  rename(value_xi = value) %>%
-  mutate(choice="Lowest"),
-  map_dfr(1:dim(results[["spv_xi_min"]])[1], function(a) {
+    dplyr::rename(value_xi = value) %>%
+    dplyr::mutate(choice="Lowest"),
+  purrr:map_dfr(1:dim(results[["spv_xi_min"]])[1], function(a) {
   data.frame(
     value_xi = results[["spv_xi_min"]][a, ,2,1],
     mechanism = "GLB",
@@ -207,8 +208,8 @@ spv_means_xi <- spv_data_xi %>%
 
 
 spv_data <- list(spv_means_Y, spv_means_xi) %>%
-  reduce(full_join, by = c("mechanism","level", "type", "choice")) %>%
-  mutate(color_group = case_when(
+  purrr::reduce(full_join, by = c("mechanism","level", "type", "choice")) %>%
+  dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
   ))
@@ -247,10 +248,10 @@ mean_cardinality_data <- dplyr::bind_rows(
     type = paste0(random_rate[1])
   )
 ) %>%
-  group_by(mechanism, type) %>%
-  mutate(levels = alphas[row_number()]) %>%
-  ungroup() %>%
-  mutate(color_group = case_when(
+  dplyr::group_by(mechanism, type) %>%
+  dplyr::mutate(levels = alphas[row_number()]) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
   ))
@@ -268,7 +269,7 @@ spv_plot <- ggplot2::ggplot(spv_data,
   ggplot2::geom_segment(data = hline_labels,
                         ggplot2::aes(x = x, xend = xend, y = y, yend = y, color="red"),
                         linetype = "dashed", linewidth = 1) +
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -307,7 +308,7 @@ spv_plot_xi <- ggplot2::ggplot(spv_data,
   ggplot2::geom_segment(data = hline_labels_xi,
                         ggplot2::aes(x = x, xend = xend, y = y, yend = y, color="red"),
                         linetype = "dashed", linewidth = 1) +
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -338,7 +339,7 @@ spv_Y_xi_plot <- ggplot2::ggplot(spv_data %>% filter(level==level_choice),
                                          group=color_group)) +
   ggplot2::geom_point(aes(shape=choice)) +
   ggplot2::geom_line(aes(group=color_group))+
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -370,7 +371,7 @@ mean_cardinality_plot <- ggplot2::ggplot(data=mean_cardinality_data,
   ggplot2::geom_point(data = mean_cardinality_data%>% filter(mechanism=="GLB"),
                       aes(x=factor(levels), y=value,
                           color=color_group, group=color_group), shape=4)+
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -403,19 +404,22 @@ for (t in 1:dim(heatmaps_r)[5]){
       file <- as.data.frame(heatmaps_r[,,i,r,t]) 
       colnames(file) <- levels_A
       file <- file %>%
-        mutate(row_id = row_number()) %>%
-        pivot_longer(cols = -row_id, names_to = "column_m", values_to = "value")
-      plots[[r]] <- ggplot(file, aes(x = column_m, y = row_id, fill = factor(value))) +
-        geom_tile() +
-        theme_minimal() +
-        labs(title = paste0("r: ", random_rate[r]),
-             x = "Treatment (m)",
+        dplyr::mutate(row_id = dplyr::row_number()) %>%
+        tidyr::pivot_longer(cols = -row_id, names_to = "column_m", 
+                            values_to = "value")
+      plots[[r]] <- ggplot2::ggplot(file, 
+                                    ggplot2::aes(x = column_m, y = row_id, 
+                                                 fill = factor(value))) +
+        ggplot2::geom_tile() +
+        ggplot2::theme_minimal() +
+        ggplot2::labs(title = paste0("r: ", random_rate[r]),
+             x = "Treatment levels",
              y = "Observations",
              fill = "Present")
     }
     plots_completed[[i]] <- gridExtra::arrangeGrob(grobs = plots, nrow = 1, ncol = dim(heatmaps_r)[4], top = paste0("Alpha = ", alphas[i]))
   }
-  multi_page <- marrangeGrob(grobs = plots_completed, nrow = 1, ncol = 1)
+  multi_page <- gridExtra::marrangeGrob(grobs = plots_completed, nrow = 1, ncol = 1)
   ggplot2::ggsave(
     filename = paste0("inst/images/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
     multi_page, width = 30, height = 15)

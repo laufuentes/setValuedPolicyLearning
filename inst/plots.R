@@ -136,14 +136,14 @@ saveRDS(object = results,
 # Set-policy value results
 spv_data <- dplyr::bind_rows(
   make_block(1, "Unweighted", results[["spv"]], alphas, random_rate),
-  map_dfr(1:dim(results[["spv"]])[1], function(a) {
+  purrr::map_dfr(1:dim(results[["spv"]])[1], function(a) {
     data.frame(
       value_Y = results[["spv"]][a, ,2,1],
       mechanism = "GLB",
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )})) %>%
-  mutate(color_group = case_when(
+  dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
   ))
@@ -165,10 +165,10 @@ mean_cardinality_data <- dplyr::bind_rows(
     mechanism = "GLB",
     type = paste0(random_rate[1]))
   ) %>%  
-  group_by(mechanism, type) %>%
-    mutate(levels = alphas[row_number()]) %>%
-    ungroup() %>% 
-  mutate(color_group = case_when(
+  dplyr::group_by(mechanism, type) %>%
+  dplyr::mutate(levels = alphas[dplyr::row_number()]) %>%
+  dplyr::ungroup() %>% 
+  dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
   ))
@@ -192,7 +192,7 @@ spv_plot <- ggplot2::ggplot(spv_data,
   ggplot2::geom_segment(data = hline_labels,
                         ggplot2::aes(x = x, xend = xend, y = y, yend = y, color="red"),
                         linetype = "dashed", linewidth = 1) +
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -217,14 +217,17 @@ ggplot2::ggsave(spv_plot,
 mean_cardinality_plot <- ggplot2::ggplot(data=mean_cardinality_data,
                                    ggplot2::aes(x=factor(levels), y=value,
                                                 color=color_group))+
-  ggplot2::geom_line(aes(group=color_group), alpha=0.5)+
-  ggplot2::geom_point(data=mean_cardinality_data%>% filter(mechanism=="Unweighted"),
-                      aes(x=factor(levels), y=value,
+  ggplot2::geom_line(ggplot2::aes(group=color_group), 
+                     alpha=0.5)+
+  ggplot2::geom_point(data=mean_cardinality_data %>% 
+                        dplyr::filter(mechanism=="Unweighted"),
+                      ggplot2::aes(x=factor(levels), y=value,
                           color=color_group, group=color_group))+
-  ggplot2::geom_point(data = mean_cardinality_data%>% filter(mechanism=="GLB"),
-                      aes(x=factor(levels), y=value,
+  ggplot2::geom_point(data = mean_cardinality_data%>% 
+                        dplyr::filter(mechanism=="GLB"),
+                      ggplot2::aes(x=factor(levels), y=value,
                           color=color_group, group=color_group), shape=4)+
-  scale_color_manual(
+  ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
       stats::setNames(
@@ -254,20 +257,27 @@ for (t in 1:dim(heatmaps_r)[5]){
     plots <- list()
     for (r in 1:dim(heatmaps_r)[4]){
       file <- as.data.frame(heatmaps_r[,,i,r,t]) %>%
-        mutate(row_id = row_number()) %>%
-        pivot_longer(cols = -row_id, names_to = "column_m", values_to = "value")
-      plots[[r]] <- ggplot(file, aes(x = column_m, y = row_id, fill = factor(value))) +
-        geom_tile() +
-        theme_minimal() +
-        labs(title = paste0("r: ", random_rate[r]),
-             x = "Treatment (m)",
+        dplyr::mutate(row_id = dplyr::row_number()) %>%
+        tidyr::pivot_longer(cols = -row_id, names_to = "column_m", values_to = "value")
+      plots[[r]] <- ggplot2::ggplot(file, 
+                                    ggplot2::aes(x = column_m, y = row_id, 
+                                                 fill = factor(value))) +
+        ggplot2::geom_tile() +
+        ggplot2::theme_minimal() +
+        ggplot2::labs(title = paste0("r: ", random_rate[r]),
+             x = "Treatment levels",
              y = "Observations",
              fill = "Present")
     }
-    plots_completed[[i]] <- gridExtra::arrangeGrob(grobs = plots, nrow = 1, ncol = dim(heatmaps_r)[4], top = paste0("Alpha = ", alphas[i]))
+    plots_completed[[i]] <- gridExtra::arrangeGrob(grobs = plots, nrow = 1, 
+                                                   ncol = dim(heatmaps_r)[4], 
+                                                   top = paste0("Alpha = ", 
+                                                                alphas[i]))
   }
-  multi_page <- marrangeGrob(grobs = plots_completed, nrow = 1, ncol = 1)
+  multi_page <- gridExtra::marrangeGrob(grobs = plots_completed, 
+                                        nrow = 1, ncol = 1)
   ggplot2::ggsave(
-    filename = paste0("inst/images/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
+    filename = paste0("inst/images/", "Heatmap_", names_experts[t], 
+                      "_", type, ".pdf"),
     multi_page, width = 30, height = 15)
 }
