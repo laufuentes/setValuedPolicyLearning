@@ -159,16 +159,15 @@ spv_classic<- set_policy_value(SL.out$doptFactorPredict_new, ab = ab,
 
 # Mean cardinality of set-valued policies
 mean_cardinality_data <- dplyr::bind_rows(
-  make_smaller_block(1, "Unweighted", results[["mean_cardinality"]], random_rate) %>%
-    group_by(mechanism,type)%>%
-    mutate(levels=(row_number()-1)/(length(alphas)-1)) %>% ungroup(),
+  make_smaller_block(1, "Unweighted", results[["mean_cardinality"]], random_rate),
   data.frame(
     value = results[["mean_cardinality"]][, 2, 1],
     mechanism = "GLB",
-    type = paste0(random_rate[1])
-  ) %>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(levels=(row_number()-1)/(length(alphas)-1))%>%
-    dplyr::ungroup() ) %>%
+    type = paste0(random_rate[1]))
+  ) %>%  
+  group_by(mechanism, type) %>%
+    mutate(levels = alphas[row_number()]) %>%
+    ungroup() %>% 
   mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
