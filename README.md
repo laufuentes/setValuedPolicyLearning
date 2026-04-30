@@ -1,7 +1,22 @@
 # Set-Valued Policy Learning 
 
 This repository provides an R package framework for Set-Valued Policy Learning, 
-alongside all scripts necessary to reproduce the figures and results presented in the manuscript.
+alongside all scripts necessary to reproduce the figures and results presented 
+in the manuscript.
+
+## 
+We implement set-valued policy learning as proposed in [1], where 
+the learning algorithm outputs a set of candidate treatments rather than a single 
+decision. This approach is designed to provide formal coverage guarantees—ensuring 
+that the optimal treatment are included in set-valued policies.
+
+This repository implements the two methods presented in the paper:
+* (i) *Greatest lower bound* (GLB): Based on upper and lower confidence bounds 
+on conditional outcomes.
+* (ii) *conformal set-valued policy learning*: Based on conformal prediction under 
+label noise.
+
+*Reference*: [1] Anonymous Authors. (2026). Set-Valued Policy Learning. [Link].
 
 ## Repository structure 
 This repository follows the R package structure to handle dependencies, 
