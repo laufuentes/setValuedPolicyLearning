@@ -240,7 +240,7 @@ mean_cardinality_data <- dplyr::bind_rows(
   ))
 
 
-# Set-policy value plot for varying levels of confidence (alpha)
+# Set-policy value (Y) plot for varying levels of confidence (alpha)
 spv_plot <- ggplot2::ggplot(spv_data,
                             ggplot2::aes(x = factor(level),
                                          y= value_Y,
@@ -271,7 +271,41 @@ spv_plot <- ggplot2::ggplot(spv_data,
   ggplot2::theme_minimal()
 
 ggplot2::ggsave(spv_plot,
-                filename=paste0("inst/images/spv_plot_",type,".pdf"),
+                filename=paste0("inst/images/spv_plot_Y_",type,".pdf"),
+                width = 30, height = 15)
+
+
+spv_plot_xi <- ggplot2::ggplot(spv_data,
+                            ggplot2::aes(x = factor(level),
+                                         y= value_xi,
+                                         color = color_group)) +
+  ggplot2::geom_line(ggplot2::aes(group = color_group),
+                     position = position_dodge(width = 0.75)) +
+  ggplot2::geom_point(ggplot2::aes(group = color_group),
+                      position = position_dodge(width = 0.75)) +
+  ggplot2::geom_segment(data = hline_labels,
+                        ggplot2::aes(x = x, xend = xend, y = y, yend = y, color="red"),
+                        linetype = "dashed", linewidth = 1) +
+  scale_color_manual(
+    name = "Technique",
+    values = c(
+      stats::setNames(
+        viridisLite::viridis(length(type_vals), option = "magma"),
+        paste0("type_", type_vals)
+      ),
+      "GLB"  = "green"
+    ),
+    breaks = c(paste0("type_", type_vals), "GLB"),
+    labels = c(paste0("r = ", type_vals), "GLB")
+  ) +
+  ggplot2::facet_grid(rows=ggplot2::vars(choice)) +
+  ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
+                y = "Set policy value (SPV)",
+                color = "Legend") +
+  ggplot2::theme_minimal()
+
+ggplot2::ggsave(spv_plot_xi,
+                filename=paste0("inst/images/spv_plot_xi_",type,".pdf"),
                 width = 30, height = 15)
 
 # Set-policy value of Y vs. set-policy value for xi
