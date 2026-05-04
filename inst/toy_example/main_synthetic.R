@@ -15,7 +15,7 @@ for (subdir in subdirs) {
     dir.create(subdir_path, recursive = TRUE)
   }
   if (subdir == "images") {
-    for (img_folder in n_samples) {
+    for (img_folder in c(6000, 12000, 18000)) {
       img_path <- file.path(subdir_path, img_folder)
       if (!dir.exists(img_path)) {
         message(sprintf("Creating image subfolder: %s", img_folder))
@@ -63,7 +63,7 @@ is_RCT <- FALSE
 RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
 n_samples <- c(6000, 12000, 18000)
 ncov <- 4
-n_test <- 1
+n_test <- 50
 
 random_rate <- seq(0,1,0.1) # random rates to test
 n_rate <- length(random_rate) # number of random rates to test

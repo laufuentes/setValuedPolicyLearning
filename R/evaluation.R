@@ -177,8 +177,9 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
   col_offset <- (0:(m - 1)) * n
 
   if(!is.list(test_set)){
-    coords <- which(test_set == 1, arr.ind = TRUE)
-    test_set <- split(coords[, "col"], coords[, "row"])
+    test_set <- as.list(test_set)
+    # coords <- which(test_set == 1, arr.ind = TRUE)
+    # test_set <- split(coords[, "col"], coords[, "row"])
   }
   
   ## ---- 1. FAST policy sampling ----
@@ -236,8 +237,9 @@ set_policy_value <- function(test_set, test,
   col_offset <- (0:(m - 1)) * n
 
   if(!is.list(test_set)){
-    coords <- which(test_set == 1, arr.ind = TRUE)
-    test_set <- split(coords[, "col"], coords[, "row"])
+    test_set <- as.list(test_set)
+    # coords <- which(test_set == 1, arr.ind = TRUE)
+    # test_set <- split(coords[, "col"], coords[, "row"])
   }
   
   random_policy <- matrix(NA_integer_, n, n_test)
@@ -325,8 +327,9 @@ ivf_set_policy_values <- function(test_set, test,
                                   ab, ab_xi, n_test=1,levels) {
 
   if(!is.list(test_set)){
-    coords <- which(test_set == 1, arr.ind = TRUE)
-    test_set <- split(coords[, "col"], coords[, "row"])
+    test_set <- as.list(test_set)
+    # coords <- which(test_set == 1, arr.ind = TRUE)
+    # test_set <- split(coords[, "col"], coords[, "row"])
   }
   n <- nrow(test)
   m <-length(levels)

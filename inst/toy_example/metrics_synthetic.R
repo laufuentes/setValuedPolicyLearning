@@ -76,7 +76,7 @@ ggplot2::ggsave(ecdf_plot,
 cov_unif <- mean_cardinality <- cov_relaxed <- array(0, dim=c(length(alphas), 3,
                                                          ncol(SL.out$rate_cal_labels_unweighted)))
 
-spv<- array(0, dim=c(length(alphas), 1, 3,
+spv<- array(0, dim=c(length(alphas), n_test, 3,
                                   ncol(SL.out$rate_cal_labels_unweighted)))
 heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),
                              ncol(SL.out$rate_cal_labels_unweighted),3))
@@ -101,7 +101,7 @@ for(i in 1:length(alphas)){
                             factor(idx[, "row"],
                                    levels = seq_len(nrow(binary_confidence_set))))
     spv[i,,1,r]<- oracular_set_policy_value(confidence_set, test= SL.out$df_new,
-                                            levels=levels_A,
+                                            levels=levels_A, n_test=n_test,
                                             treatment_name = treatment_name,
                                             outcome_name = outcome_name,
                                             covariates = covariates_name,
@@ -128,10 +128,10 @@ for(i in 1:length(alphas)){
   C_set_binary_naive <- ifelse(uppers>=uppest_lrw_bound, 1, 0)
   indices_naive <- which(C_set_binary_naive != 0, arr.ind = TRUE)
   naive.confidence_set <- split(indices_naive[, "col"], indices_naive[, "row"])
-  spv[i,,2,]<- oracular_set_policy_value(naive.confidence_set,
+  spv[i,,2,]<- oracular_set_policy_value(naive.confidence_set, n_test=n_test,
                                          test= SL.out$df_new, levels=levels_A,
                                          treatment_name = treatment_name,
-                                         outcome_name = outcome_name,
+                                         outcome_name = outcome_name, 
                                          covariates = covariates_name,
                                          test_potential_outcome = SL.out$potential_outcomes)
   cov_relaxed[i,2,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new,
@@ -152,7 +152,7 @@ for(i in 1:length(alphas)){
     cov_relaxed[i,3,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new,
                                          pred_set = true_confidence_set)
     cov_unif[i,3,]<- coverage_unif(SL.out$optimal_policy_new,pred_set = true_confidence_set)
-    spv[i,,3,]<- oracular_set_policy_value(true_confidence_set,
+    spv[i,,3,]<- oracular_set_policy_value(true_confidence_set, n_test=n_test,
                                            test= SL.out$df_new, levels=levels_A,
                                            treatment_name = treatment_name,
                                            outcome_name = outcome_name,

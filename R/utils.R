@@ -130,6 +130,6 @@ heatmap_treatments <- function(confidence_set, levels_A){
       values_from = exists,
       values_fill = 0,
       names_expand = TRUE
-    ) %>% dplyr::select(dply::any_of(levels_A))
+    ) %>% dplyr::select(dplyr::any_of(levels_A))
   return(df)
 }

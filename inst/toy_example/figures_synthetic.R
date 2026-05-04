@@ -237,14 +237,51 @@ plot_data <- complete_data %>%
 
 type_vals <- sort(unique(plot_data$type))
 
+spv_classic_6000 <- oracular_set_policy_value(SL.out_6000_nonrct$doptFactorPredict_new,
+                                              test= SL.out_6000_nonrct$df_new,
+                                              levels=levels_A,
+                                              treatment_name = treatment_name,
+                                              outcome_name = outcome_name,
+                                              covariates = covariates_name,
+                                              test_potential_outcome= 
+                                                SL.out_6000_nonrct$potential_outcomes)
+
+spv_classic_12000 <- oracular_set_policy_value(SL.out_12000_nonrct$doptFactorPredict_new, 
+                                              test= SL.out_12000_nonrct$df_new,
+                                              levels=levels_A,
+                                              treatment_name = treatment_name,
+                                              outcome_name = outcome_name,
+                                              covariates = covariates_name,
+                                              test_potential_outcome= 
+                                                SL.out_12000_nonrct$potential_outcomes)
+
+spv_classic_18000 <- oracular_set_policy_value(SL.out_18000_nonrct$doptFactorPredict_new, 
+                                              test= SL.out_18000_nonrct$df_new,
+                                              levels=levels_A,
+                                              treatment_name = treatment_name,
+                                              outcome_name = outcome_name,
+                                              covariates = covariates_name,
+                                              test_potential_outcome= 
+                                                SL.out_18000_nonrct$potential_outcomes)
+
+hline_labels <- data.frame(
+  x = 1, xend = max(as.numeric(as.character(spv_means$level))) %>% as.factor(),
+  y = c(spv_classic_6000, spv_classic_12000, spv_classic_18000),
+  size = c(6000, 12000, 18000) %>% as.factor(),
+  type = "Label generation technique policy value", 
+  fill = scales::hue_pal()(1))
+
 # ── Create SPV-level plots ────────────────────────────────────────────────────
 plot_spv_level <- ggplot2::ggplot(plot_data,
                                   ggplot2::aes(x = level, y = mean_spv)) +
-  ggplot2::geom_line(data = subset(plot_data, mechanism == "Estimated labels"),
-                     ggplot2::aes(group = type, color = color_group),
-                     alpha = 0.7) +
-  ggplot2::geom_point(aes(size = mean_cardinality, color = color_group),
-                      alpha = 0.5, show.legend = c(size=FALSE)) +
+  ggplot2::geom_line(ggplot2::aes(group = interaction(mechanism, type), 
+                                  color = color_group), alpha = 0.7) +
+  ggplot2::geom_point(aes(color = color_group),
+                      alpha = 0.5) +
+  ggplot2::geom_segment(
+    data = hline_labels,
+    ggplot2::aes(x = x, xend = xend, y = y, yend = y),
+    color = "gray", linetype = "dashed", linewidth = 1) +
   ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
@@ -261,7 +298,10 @@ plot_spv_level <- ggplot2::ggplot(plot_data,
                         range = c(0.1, 2)) +
   ggplot2::facet_grid(~size) +
   ggplot2::labs(x = expression("Confidence level (" * alpha * ")"),
-       y = "Set Policy Value (SPV)")
+       y = "Set Policy Value (SPV)")+ 
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 ggplot2::ggsave(plot_spv_level, filename=paste0("inst/images/Level_SPV_", type,".pdf"), width = 15, height = 8)
 
 plot_cov_level <- ggplot2::ggplot(plot_data,
@@ -289,7 +329,10 @@ plot_cov_level <- ggplot2::ggplot(plot_data,
                         range = c(0.1, 2)) +
   ggplot2::facet_grid( ~ size) +
   ggplot2::labs(x = expression("Confidence level (" * alpha * ")"),
-       y = expression("Coverage attained"))
+       y = expression("Coverage attained")) + 
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 ggplot2::ggsave(plot_cov_level, filename=paste0("inst/images/Level_Coverage_", type,".pdf"), width = 15, height = 8)
 
 plot_cov_factor_level <- ggplot2::ggplot(plot_data,
@@ -298,7 +341,7 @@ plot_cov_factor_level <- ggplot2::ggplot(plot_data,
   ggplot2::geom_line(alpha = 0.7) +
   ggplot2::geom_point(ggplot2::aes(size = mean_spv, color = color_group),
              alpha = 0.5, show.legend = c(size=FALSE)) +
-  ggplot2::geom_hline(yintercept = 0, color="red")+
+  ggplot2::geom_hline(yintercept = 0, color="black")+
   ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
@@ -316,7 +359,10 @@ plot_cov_factor_level <- ggplot2::ggplot(plot_data,
                         range = c(0.1, 2)) +
   ggplot2::facet_grid(~ size) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
-       y = "Marginal coverage factor")
+       y = "Marginal coverage factor")+
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 ggplot2::ggsave(plot_cov_factor_level, filename=paste0("inst/images/Level_cov_factor_", type,".pdf"), width = 15, height = 8)
 
 plot_width_spv <- ggplot2::ggplot(plot_data,
@@ -345,7 +391,10 @@ plot_width_spv <- ggplot2::ggplot(plot_data,
                         range = c(0.1, 2)) +
   ggplot2::facet_grid(~size) +
   ggplot2::labs(x = "Mean cardinality",
-       y = "Set Policy Value (SPV)")
+       y = "Set Policy Value (SPV)") + 
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 ggplot2::ggsave(plot_width_spv, filename=paste0("inst/images/mean_cardinality_SPV_", type,".pdf"), width = 15, height = 8)
 
 plot_mean_level<- ggplot2::ggplot(plot_data,
@@ -370,7 +419,10 @@ plot_mean_level<- ggplot2::ggplot(plot_data,
   ) +
   ggplot2::facet_grid(~size) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
-       y = "Mean cardinality")
+       y = "Mean cardinality")+  
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 ggplot2::ggsave(plot_mean_level, filename=paste0("inst/images/mean_cardinality_level_", type,".pdf"), width = 15, height = 8)
 
 
@@ -400,9 +452,10 @@ plot_sythetic_scenario <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y,
     ggplot2::labs(
       x = "X1",
       y = "X2",
-      fill = "Optimal treatments"
-    ) +
-    ggplot2::theme_minimal()
+      fill = "Optimal treatments") + 
+  ggplot2::theme(
+    axis.title = ggplot2::element_text(size = 16),
+    legend.title = ggplot2::element_text(size = 14))
 
 ggplot2::ggsave(plot_sythetic_scenario, 
                 filename=paste0("inst/images/Synthetic_data_", type,".pdf"), 
