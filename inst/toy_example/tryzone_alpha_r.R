@@ -59,8 +59,8 @@ spv_data_18000_nonrct <- dplyr::bind_rows(
       type = paste0(random_rate[1]))}))%>% mutate(size = 18000)
 # merge data frames
 spv_data <- dplyr::bind_rows(spv_data_6000_nonrct,
-                      spv_data_12000_nonrct,
-                      spv_data_18000_nonrct)%>%
+                             spv_data_12000_nonrct,
+                             spv_data_18000_nonrct)%>%
   dplyr::rename(spv=value)%>%
   dplyr::mutate(across(-spv, as.factor))
 
@@ -119,8 +119,8 @@ spv_d_data_18000_nonrct <- dplyr::bind_rows(
       type = paste0(random_rate[1]))}))%>% mutate(size = 18000)
 # merge data frames
 spv_d_data <- dplyr::bind_rows(spv_d_data_6000_nonrct,
-                             spv_d_data_12000_nonrct,
-                             spv_d_data_18000_nonrct)%>%
+                               spv_d_data_12000_nonrct,
+                               spv_d_data_18000_nonrct)%>%
   dplyr::rename(spv_d=value)%>%
   dplyr::mutate(across(-spv_d, as.factor))
 
@@ -200,97 +200,16 @@ mean_cardinality_data_18000_nonrct <- dplyr::bind_rows(
 ) %>% mutate(size=18000)
 # merge data frames
 mean_cardinality_data <- bind_rows(mean_cardinality_data_6000_nonrct,
-                             mean_cardinality_data_12000_nonrct,
-                             mean_cardinality_data_18000_nonrct) %>%
+                                   mean_cardinality_data_12000_nonrct,
+                                   mean_cardinality_data_18000_nonrct) %>%
   dplyr::rename("mean_cardinality"=value) %>%
   dplyr::mutate(across(-mean_cardinality, as.factor))
 
-# ── Coverage data  ────────────────────────────────────────────
-# n = 6000
-cov_data_6000_nonrct <- dplyr::bind_rows(
-  make_smaller_block(1, "Estimated labels",
-                     results_6000_nonrct[["cov_unif"]],
-                     random_rate)%>%
-    dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(row_number()-1)/(length(alphas)-1)) %>% ungroup(),
-  map_dfr(1:dim(results_6000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_6000_nonrct[["cov_unif"]][a, 2, 1],
-      mechanism = "GLB",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup() ,
-  purrr::map_dfr(1:dim(results_6000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_6000_nonrct[["cov_unif"]][a, 3, 1],
-      mechanism = "Oracular CP",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup()) %>% dplyr::mutate(size=6000)
-# n = 12000
-cov_data_12000_nonrct <- dplyr::bind_rows(
-  make_smaller_block(1, "Estimated labels",
-                     results_12000_nonrct[["cov_unif"]],
-                     random_rate)%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup(),
-  purrr::map_dfr(1:dim(results_12000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_12000_nonrct[["cov_unif"]][a, 2, 1],
-      mechanism = "GLB",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup(),
-  purrr::map_dfr(1:dim(results_12000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_12000_nonrct[["cov_unif"]][a, 3, 1],
-      mechanism = "Oracular CP",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup()) %>% 
-  dplyr::mutate(size=12000)
-# n = 18000
-cov_data_18000_nonrct <- dplyr::bind_rows(
-  make_smaller_block(1, "Estimated labels",
-                     results_18000_nonrct[["cov_unif"]],
-                     random_rate)%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup(),
-  purrr::map_dfr(1:dim(results_18000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_18000_nonrct[["cov_unif"]][a, 2, 1],
-      mechanism = "GLB",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(row_number()-1)/(length(alphas)-1)) %>% ungroup(),
-  purrr::map_dfr(1:dim(results_18000_nonrct[["cov_unif"]])[1], function(a) {
-    data.frame(
-      value = results_18000_nonrct[["cov_unif"]][a, 3, 1],
-      mechanism = "Oracular CP",
-      type = paste0(random_rate[1])
-    )})%>% dplyr::group_by(mechanism,type)%>%
-    dplyr::mutate(level=(dplyr::row_number()-1)/(length(alphas)-1)) %>% 
-    dplyr::ungroup()) %>% 
-  dplyr::mutate(size=18000)
-# merge data frames
-cov_data <- dplyr::bind_rows(cov_data_6000_nonrct,cov_data_12000_nonrct,
-                             cov_data_18000_nonrct)
-
-# ── Marginal coverage factor computation   ────────────────────────────────────
-cov_factor_data <- cov_data %>%
-  dplyr::mutate(
-    type = factor(type),         # factor for discrete color
-    mechanism = factor(mechanism)) %>%
-  dplyr::mutate(cov_factor = cov_data$value - (1 - level)) %>%
-  dplyr::mutate(across(-c(value,cov_factor ), as.factor))%>%
-  dplyr::rename("cov_mean"=value)
 
 # ── Create complete data frame  ───────────────────────────────────────────────
-complete_data <- list(spv_means, spv_d_means, mean_cardinality_data,cov_factor_data) %>%
+complete_data <- list(spv_means, spv_d_means, mean_cardinality_data
+                      #,cov_factor_data
+                      ) %>%
   purrr::reduce(full_join, by = c("mechanism","level", "type", "size"))
 
 plot_data <- complete_data %>%
@@ -302,81 +221,69 @@ plot_data <- complete_data %>%
 
 type_vals <- sort(unique(plot_data$type))
 
-gAW.pred_spv6000 <- stats::predict(SL.out_6000_nonrct$g.reg.train_spv,
-                               newdata = SL.out$df_new[, covariates_name, 
-                                                       drop = FALSE], type = "prob")$pred
-
 spv_6000_res <- oracular_set_policy_value(SL.out_6000_nonrct$doptFactorPredict_new,
                                           test= SL.out_6000_nonrct$df_new,
                                           levels=levels_A,
                                           treatment_name = treatment_name,
                                           outcome_name = outcome_name,
                                           covariates = covariates_name,
-                                          gAW.pred=gAW.pred_spv6000 ,
+                                          mod_ps=SL.out_6000_nonrct$g.reg.train_spv,
                                           test_potential_outcome= 
                                             SL.out_6000_nonrct$potential_outcomes)
 spv_classic_6000 <- spv_6000_res[[1]]
 #spv_d_classic_6000 <- spv_6000_res[[2]]
 spv_6000_naive <- oracular_set_policy_value(SL.out_6000_nonrct$unweighted_new_naive,
-                                          test= SL.out_6000_nonrct$df_new,
-                                          levels=levels_A,
-                                          treatment_name = treatment_name,
-                                          outcome_name = outcome_name,
-                                          covariates = covariates_name,
-                                          gAW.pred=gAW.pred_spv6000,
-                                          test_potential_outcome= 
-                                            SL.out_6000_nonrct$potential_outcomes)
+                                            test= SL.out_6000_nonrct$df_new,
+                                            levels=levels_A,
+                                            treatment_name = treatment_name,
+                                            outcome_name = outcome_name,
+                                            covariates = covariates_name,
+                                            mod_ps=SL.out_6000_nonrct$g.reg.train_spv,
+                                            test_potential_outcome= 
+                                              SL.out_6000_nonrct$potential_outcomes)
 spv_naive_6000 <- spv_6000_naive[[1]]
-
-gAW.pred_spv12000 <- stats::predict(SL.out_12000_nonrct$g.reg.train_spv,
-                                   newdata = SL.out$df_new[, covariates_name, 
-                                                           drop = FALSE], type = "prob")$pred
 spv_12000_res <- oracular_set_policy_value(SL.out_12000_nonrct$doptFactorPredict_new, 
                                            test= SL.out_12000_nonrct$df_new,
                                            levels=levels_A,
                                            treatment_name = treatment_name,
                                            outcome_name = outcome_name,
                                            covariates = covariates_name,
-                                           gAW.pred =gAW.pred_spv12000,
+                                           mod_ps=SL.out_12000_nonrct$g.reg.train_spv,
                                            test_potential_outcome= 
                                              SL.out_12000_nonrct$potential_outcomes)
 
 spv_classic_12000 <- spv_12000_res[[1]]
 spv_12000_naive <- oracular_set_policy_value(SL.out_12000_nonrct$unweighted_new_naive, 
-                                           test= SL.out_12000_nonrct$df_new,
-                                           levels=levels_A,
-                                           treatment_name = treatment_name,
-                                           outcome_name = outcome_name,
-                                           covariates = covariates_name,
-                                           gAW.pred =gAW.pred_spv12000,
-                                           test_potential_outcome= 
-                                             SL.out_12000_nonrct$potential_outcomes)
+                                             test= SL.out_12000_nonrct$df_new,
+                                             levels=levels_A,
+                                             treatment_name = treatment_name,
+                                             outcome_name = outcome_name,
+                                             covariates = covariates_name,
+                                             mod_ps=SL.out_12000_nonrct$g.reg.train_spv,
+                                             test_potential_outcome= 
+                                               SL.out_12000_nonrct$potential_outcomes)
 
 spv_naive_12000 <- spv_12000_naive[[1]]
-
-gAW.pred_spv18000 <- stats::predict(SL.out_18000_nonrct$g.reg.train_spv,
-                                    newdata = SL.out$df_new[, covariates_name, 
-                                                            drop = FALSE], type = "prob")$pred
 spv_18000_res <- oracular_set_policy_value(SL.out_18000_nonrct$doptFactorPredict_new, 
                                            test= SL.out_18000_nonrct$df_new,
                                            levels=levels_A,
                                            treatment_name = treatment_name,
                                            outcome_name = outcome_name,
                                            covariates = covariates_name,
-                                           gAW.pred = gAW.pred_spv18000,
+                                           mod_ps=SL.out_18000_nonrct$g.reg.train_spv,
                                            test_potential_outcome= 
                                              SL.out_18000_nonrct$potential_outcomes)
 
 spv_classic_18000 <- spv_18000_res[[1]]
 spv_18000_naive <- oracular_set_policy_value(SL.out_18000_nonrct$unweighted_new_naive, 
-                                           test= SL.out_18000_nonrct$df_new,
-                                           levels=levels_A,
-                                           treatment_name = treatment_name,
-                                           outcome_name = outcome_name,
-                                           covariates = covariates_name,
-                                           gAW.pred = gAW.pred_spv18000,
-                                           test_potential_outcome= 
-                                             SL.out_18000_nonrct$potential_outcomes)
+                                             test= SL.out_18000_nonrct$df_new,
+                                             levels=levels_A,
+                                             treatment_name = treatment_name,
+                                             outcome_name = outcome_name,
+                                             covariates = covariates_name,
+                                             mod_ps=SL.out_18000_nonrct$g.reg.train_spv,
+                                             test_potential_outcome= 
+                                               SL.out_18000_nonrct$potential_outcomes)
 spv_naive_18000 <- spv_18000_naive[[1]]
 
 hline_labels <- data.frame(
@@ -401,6 +308,34 @@ hline_labels_naive <- data.frame(
   size = c(6000, 12000, 18000) %>% as.factor(),
   type = "Label generation technique policy value", 
   fill = scales::hue_pal()(1))
+
+# ── Create SPV-level for alpha filtering and r filtering ──────────────────────
+df_alpha <- spv_data %>% 
+  filter(type=="0") %>%
+  mutate(
+    method = level,
+    filter_group = "alpha filtering"
+  )
+
+# Prepare parameter (r) dataset
+df_param <- spv_d_data %>% 
+  filter(level=="0.1") %>%
+  mutate(
+    method = type,
+    filter_group = "r filtering (level=0.9)"
+  )
+
+combined_df <- bind_rows(df_alpha, df_param)
+
+ggplot(combined_df, aes(x = factor(method), y = value, fill = filter_group)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 1) +
+  ggplot2::facet_grid(~size) +
+  labs(
+    title = "Comparison of Confidence Set Values Across Filtering Methods",
+    x = "",
+    y = "Value",
+    fill = "Filtering approach"
+  )
 
 # ── Create SPV-level plots ────────────────────────────────────────────────────
 # uniform 
@@ -443,10 +378,10 @@ plot_spv_level <- ggplot2::ggplot(plot_data,
     breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
     labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")) +
   ggplot2::scale_size_continuous(name = "Mean width",
-                        range = c(0.1, 2)) +
+                                 range = c(0.1, 2)) +
   ggplot2::facet_grid(~size) +
   ggplot2::labs(x = expression("Confidence level (" * alpha * ")"),
-       y = "Set Policy Value (SPV)")+ 
+                y = "Set Policy Value (SPV)")+ 
   ggplot2::theme(
     axis.title = ggplot2::element_text(size = 18),
     legend.title = ggplot2::element_text(size = 18), 
@@ -457,7 +392,7 @@ ggplot2::ggsave(plot_spv_level, filename=paste0("inst/images/Level_SPV_", type,"
                 width = 15, height = 8)
 
 plot_spv_d_level <- ggplot2::ggplot(plot_data,
-                                  ggplot2::aes(x = level, y = mean_spv_d)) +
+                                    ggplot2::aes(x = level, y = mean_spv_d)) +
   ggplot2::geom_line(ggplot2::aes(group = interaction(mechanism, type), 
                                   color = color_group), 
                      alpha = 0.7, linewidth=1.5) +
@@ -508,12 +443,12 @@ ggplot2::ggsave(plot_spv_d_level, filename=paste0("inst/images/Level_SPV_d_", ty
 
 plot_cov_level <- ggplot2::ggplot(plot_data,
                                   ggplot2::aes(x = level,
-                                  y = cov_mean)) +
+                                               y = cov_mean)) +
   ggplot2::geom_line(data = subset(plot_data, mechanism == "Estimated labels"),
                      ggplot2::aes(group = type, color = color_group),
                      alpha = 0.7, linewidth=1.5) +
   ggplot2::geom_point(ggplot2::aes(color = color_group),
-             alpha = 0.5, show.legend = c(size=FALSE), size=3) +
+                      alpha = 0.5, show.legend = c(size=FALSE), size=3) +
   ggplot2::scale_color_manual(
     name = "Technique",
     values = c(
@@ -528,10 +463,10 @@ plot_cov_level <- ggplot2::ggplot(plot_data,
     labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
   ) +
   ggplot2::scale_size_continuous(name = "Mean width",
-                        range = c(0.1, 2)) +
+                                 range = c(0.1, 2)) +
   ggplot2::facet_grid( ~ size) +
   ggplot2::labs(x = expression("Confidence level (" * alpha * ")"),
-       y = expression("Coverage attained")) + 
+                y = expression("Coverage attained")) + 
   ggplot2::theme(
     axis.title = ggplot2::element_text(size = 18),
     legend.title = ggplot2::element_text(size = 18), 
@@ -541,40 +476,6 @@ plot_cov_level <- ggplot2::ggplot(plot_data,
 ggplot2::ggsave(plot_cov_level, filename=paste0("inst/images/Level_Coverage_", type,"_", name_learner,".pdf"), 
                 width = 15, height = 8)
 
-plot_cov_factor_level <- ggplot2::ggplot(plot_data,
-                                         ggplot2::aes(x = level, y = cov_factor,
-                                  group = color_group, color=color_group)) +
-  ggplot2::geom_line(alpha = 0.7, linewidth=1.5) +
-  ggplot2::geom_point(ggplot2::aes(color = color_group),
-             alpha = 0.5, show.legend = c(size=FALSE), size=3) +
-  ggplot2::geom_hline(yintercept = 0, color="black")+
-  ggplot2::scale_color_manual(
-    name = "Technique",
-    values = c(
-      stats::setNames(
-        viridisLite::viridis(length(type_vals), option = "magma"),
-        paste0("type_", type_vals)
-      ),
-      "Oracular CP" = "blue",
-      "GLB"  = "green"
-    ),
-    breaks = c(paste0("type_", type_vals), "Oracular CP", "GLB"),
-    labels = c(paste0("r = ", type_vals), "Oracular CP", "GLB")
-  ) +
-  ggplot2::scale_size_continuous(name = "Mean width",
-                        range = c(0.1, 2)) +
-  ggplot2::facet_grid(~ size) +
-  ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
-       y = "Marginal coverage factor")+
-  ggplot2::theme(
-    axis.title = ggplot2::element_text(size = 18),
-    legend.title = ggplot2::element_text(size = 18), 
-    legend.text = ggplot2::element_text(size = 16), 
-    strip.text = ggplot2::element_text(size = 16), 
-    legend.key.size = ggplot2::unit(1, "cm"))
-ggplot2::ggsave(plot_cov_factor_level, 
-                filename=paste0("inst/images/Level_cov_factor_", type,"_", name_learner,".pdf"), 
-                width = 15, height = 8)
 
 # plot_width_spv <- ggplot2::ggplot(plot_data,
 #                                   ggplot2::aes(x = mean_cardinality,
@@ -614,10 +515,10 @@ ggplot2::ggsave(plot_cov_factor_level,
 
 plot_mean_level<- ggplot2::ggplot(plot_data,
                                   ggplot2::aes(x = level,
-                                  y = mean_cardinality,
-                                  color = color_group)) +
+                                               y = mean_cardinality,
+                                               color = color_group)) +
   ggplot2::geom_line(ggplot2::aes(group = color_group),
-            alpha = 0.7, linewidth=1.5) +
+                     alpha = 0.7, linewidth=1.5) +
   ggplot2::geom_point(ggplot2::aes(color = color_group),alpha = 0.5, size=3) +
   ggplot2::scale_color_manual(
     name = "Technique",
@@ -634,7 +535,7 @@ plot_mean_level<- ggplot2::ggplot(plot_data,
   ) +
   ggplot2::facet_grid(~size) +
   ggplot2::labs(x = expression("Confidence level ("* alpha *")"),
-       y = "Mean cardinality")+  
+                y = "Mean cardinality")+  
   ggplot2::theme(
     axis.title = ggplot2::element_text(size = 18),
     legend.title = ggplot2::element_text(size = 18), 
@@ -646,32 +547,32 @@ ggplot2::ggsave(plot_mean_level,
 
 
 optimal_treatments <- function(df) {
-    df <- as.matrix(df)
-    mat <- matrix(0, nrow = nrow(df), ncol = ncov)
-    mat[, 1:2] <- df
-    if(type=="normal"){
-      p_o <- mu_P0_normal(mat)
-    }else{
-      p_o <- mu_P0_simplex_complicated(mat)
-    }
-    apply(data.frame(1:nrow(mat)), 1, function(i){
-      paste0("{",
-             paste(which(p_o[i,]==max(p_o[i,])), collapse = ","), 
-             "}")})
+  df <- as.matrix(df)
+  mat <- matrix(0, nrow = nrow(df), ncol = ncov)
+  mat[, 1:2] <- df
+  if(type=="normal"){
+    p_o <- mu_P0_normal(mat)
+  }else{
+    p_o <- mu_P0_simplex_complicated(mat)
+  }
+  apply(data.frame(1:nrow(mat)), 1, function(i){
+    paste0("{",
+           paste(which(p_o[i,]==max(p_o[i,])), collapse = ","), 
+           "}")})
 }
 
 df <- tidyr::expand_grid(
-    x = seq(-2, 2, length.out = 500),
-    y = seq(-2, 2, length.out = 500))
+  x = seq(-2, 2, length.out = 500),
+  y = seq(-2, 2, length.out = 500))
 df$optimal_treatments <- optimal_treatments(df)
 
 plot_sythetic_scenario <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y,
-                                         fill = as.factor(optimal_treatments))) +
-    ggplot2::geom_raster() +
-    ggplot2::labs(
-      x = "X1",
-      y = "X2",
-      fill = "Optimal treatments") + 
+                                                           fill = as.factor(optimal_treatments))) +
+  ggplot2::geom_raster() +
+  ggplot2::labs(
+    x = "X1",
+    y = "X2",
+    fill = "Optimal treatments") + 
   ggplot2::theme(
     axis.title = ggplot2::element_text(size = 18),
     legend.title = ggplot2::element_text(size = 18), 
@@ -685,7 +586,7 @@ ggplot2::ggsave(plot_sythetic_scenario,
 
 # uniform 
 plot_spv_level_error_bars <- ggplot2::ggplot(plot_data,
-                                  ggplot2::aes(x = level, y = mean_spv)) +
+                                             ggplot2::aes(x = level, y = mean_spv)) +
   ggplot2::geom_line(ggplot2::aes(group = interaction(mechanism, type), 
                                   color = color_group), alpha = 0.7, 
                      linewidth=1.5) +
@@ -731,7 +632,7 @@ ggplot2::ggsave(plot_spv_level_error_bars,
 
 # doctors 
 plot_spv_d_level_error_bars <- ggplot2::ggplot(plot_data,
-                                             ggplot2::aes(x = level, y = mean_spv_d)) +
+                                               ggplot2::aes(x = level, y = mean_spv_d)) +
   ggplot2::geom_line(ggplot2::aes(group = interaction(mechanism, type), 
                                   color = color_group), alpha = 0.7, 
                      linewidth=1.5) +
@@ -775,139 +676,3 @@ ggplot2::ggsave(plot_spv_d_level_error_bars,
                 filename=paste0("inst/images/Level_SPV_d_error_bars", type,"_", name_learner,".pdf"),
                 width = 15, height = 8)
 
-# uniform set-policy value (alpha-r) 
-
-df_alpha <- spv_data %>% 
-  filter(type=="0" & mechanism=="Estimated labels") %>%
-  mutate(
-    method = level,
-    filter_group = "alpha filtering"
-  )
-
-df_param <- spv_data %>% 
-  filter(level=="0.1") %>%
-  mutate(
-    method = type,
-    filter_group = "r filtering (level=0.9)"
-  )
-
-combined_df <- bind_rows(df_alpha, df_param)
-
-plot_spv_level_r <- ggplot(combined_df, aes(x = factor(method), y = spv, fill = filter_group)) +
-  geom_boxplot() +
-  ggplot2::facet_grid(~size) +
-  labs(
-    title = "Comparison of Confidence Set Values Across Filtering Methods",
-    x = "",
-    y = "Value",
-    fill = "Filtering approach"
-  )
-
-ggplot2::ggsave(plot_spv_level_r, 
-                filename=paste0("inst/images/SPV_level_r_", type,"_", name_learner,".pdf"),
-                width = 15, height = 8)
-
-# doctor's set-policy value (alpha-r) 
-
-df_alpha <- spv_d_data %>% 
-  filter(type=="0" & mechanism=="Estimated labels") %>%
-  mutate(
-    method = level,
-    filter_group = "alpha filtering"
-  )
-
-df_param <- spv_d_data %>% 
-  filter(level=="0.1") %>%
-  mutate(
-    method = type,
-    filter_group = "r filtering (level=0.9)"
-  )
-
-combined_df <- bind_rows(df_alpha, df_param)
-
-plot_spv_d_level_r <- ggplot(combined_df, aes(x = factor(method), y = spv_d, fill = filter_group)) +
-  geom_boxplot() +
-  ggplot2::facet_grid(~size) +
-  labs(
-    title = "Comparison of Confidence Set Values Across Filtering Methods",
-    x = "",
-    y = "Value",
-    fill = "Filtering approach"
-  )
-
-ggplot2::ggsave(plot_spv_d_level_r, 
-                filename=paste0("inst/images/SPV_d_level_r_", type,"_", name_learner,".pdf"),
-                width = 15, height = 8)
-
-
-# mean cardinality (alpha-r)
-df_alpha <- mean_cardinality_data %>% 
-  filter(type=="0" & mechanism=="Estimated labels") %>%
-  mutate(
-    method = level,
-    filter_group = "alpha filtering"
-  )
-
-df_param <- mean_cardinality_data %>% 
-  filter(level=="0.1") %>%
-  mutate(
-    method = type,
-    filter_group = "r filtering (level=0.9)"
-  )
-
-combined_df <- bind_rows(df_alpha, df_param)
-
-plot_cardinality_level_r <- ggplot(combined_df, aes(x = factor(method), y = mean_cardinality, color = filter_group)) +
-  geom_point() +
-  ggplot2::facet_grid(~size) +
-  labs(
-    title = "Comparison of Cardinalities Across Filtering Methods",
-    x = "",
-    y = "Value",
-    color = "Filtering approach"
-  )
-
-ggplot2::ggsave(plot_cardinality_level_r, 
-                filename=paste0("inst/images/Cardinality_level_r_", type,"_", name_learner,".pdf"),
-                width = 15, height = 8)
-
-whole_grid_search <- spv_d_means %>% 
-  group_by(mechanism, size)%>% 
-  summarize(
-    max_value = max(mean_spv_d, na.rm = TRUE),
-    .groups = "drop") %>% 
-  mutate(grid.search = "both")
-
-alpha_grid_search <- spv_d_means %>% 
-  filter(type=="0") %>% 
-  group_by(mechanism, size)%>% 
-  summarize(
-    max_value = max(mean_spv_d, na.rm = TRUE),
-    .groups = "drop") %>% 
-  mutate(grid.search = "alpha")
-
-r_0.9_grid_search <- spv_d_means %>% 
-  filter(level=="0.1") %>% 
-  group_by(mechanism, size)%>% 
-  summarize(
-    max_value = max(mean_spv_d, na.rm = TRUE),
-    .groups = "drop")%>% 
-  mutate(grid.search = "r")
-
-grid.search <- bind_rows(whole_grid_search,
-                         alpha_grid_search, 
-                         r_0.9_grid_search)
-
-plot_grid_search <- ggplot(grid.search, aes(x = factor(mechanism), y = max_value, color = grid.search)) +
-  geom_point(alpha = 0.5) +
-  ggplot2::facet_grid(~size) +
-  labs(
-    title = "Comparison of Cardinalities Across Filtering Methods",
-    x = "",
-    y = "Value",
-    color = "Filtering approach"
-  )
-
-ggplot2::ggsave(plot_grid_search, 
-                filename=paste0("inst/images/grid_search_", type,"_", name_learner,".pdf"),
-                width = 15, height = 8)

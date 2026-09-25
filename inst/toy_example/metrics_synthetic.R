@@ -39,7 +39,7 @@ density_plot <- ggplot2::ggplot(SL.out$data_toghether,
                 linetype = "Score Type")#+gganimate::ease_aes('linear')
 
 ggplot2::ggsave(density_plot,
-                filename=paste0("inst/images/", n, "/", "density_",type,".pdf"),
+                filename=paste0("inst/images/", n, "/", "density_",type, "_", name_learner,".pdf"),
                 width = 10, height = 8)
 
 ecdf_plot <- ggplot2::ggplot(SL.out$data_toghether,
@@ -61,7 +61,7 @@ ecdf_plot <- ggplot2::ggplot(SL.out$data_toghether,
   ggplot2::labs(y = "ECDF", x = "Value")
 
 ggplot2::ggsave(ecdf_plot,
-                  filename=paste0("inst/images/", n, "/", "ecdf_",type,".pdf"),
+                  filename=paste0("inst/images/", n, "/", "ecdf_",type,"_", name_learner,".pdf"),
                   width = 10, height = 8)
 
 
@@ -76,7 +76,7 @@ ggplot2::ggsave(ecdf_plot,
 cov_unif <- mean_cardinality <- cov_relaxed <- array(0, dim=c(length(alphas), 3,
                                                          ncol(SL.out$rate_cal_labels_unweighted)))
 
-spv<- array(0, dim=c(length(alphas), n_test, 3,
+spv <- spv_d <- array(0, dim=c(length(alphas), n_test, 3,
                                   ncol(SL.out$rate_cal_labels_unweighted)))
 heatmaps_r <- array(0, dim=c(nrow(SL.out$df_new_sample), m, length(alphas),
                              ncol(SL.out$rate_cal_labels_unweighted),3))
@@ -100,12 +100,19 @@ for(i in 1:length(alphas)){
     confidence_set <- split(idx[, "col"],
                             factor(idx[, "row"],
                                    levels = seq_len(nrow(binary_confidence_set))))
-    spv[i,,1,r]<- oracular_set_policy_value(confidence_set, test= SL.out$df_new,
-                                            levels=levels_A, n_test=n_test,
-                                            treatment_name = treatment_name,
-                                            outcome_name = outcome_name,
-                                            covariates = covariates_name,
-                                            test_potential_outcome= SL.out$potential_outcomes)
+    
+    gAW.pred <- stats::predict(SL.out$g.reg.train_spv,
+                   newdata = SL.out$df_new[, covariates_name, 
+                                           drop = FALSE], type = "prob")$pred
+    spv_res <- oracular_set_policy_value(confidence_set, test= SL.out$df_new,
+                                         levels=levels_A, n_test=n_test,
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name, 
+                                         gAW.pred = gAW.pred,
+                                         test_potential_outcome= SL.out$potential_outcomes)
+    spv[i,,1,r]<- spv_res[[1]]
+    spv_d[i,,1,r]<- spv_res[[2]]
     cov_relaxed[i,1,r]<- coverage_relaxed(true_set = SL.out$optimal_policy_new,
                                           pred_set = confidence_set)
     cov_unif[i,1,r]<- coverage_unif(SL.out$optimal_policy_new, pred_set=confidence_set)
@@ -128,12 +135,16 @@ for(i in 1:length(alphas)){
   C_set_binary_naive <- ifelse(uppers>=uppest_lrw_bound, 1, 0)
   indices_naive <- which(C_set_binary_naive != 0, arr.ind = TRUE)
   naive.confidence_set <- split(indices_naive[, "col"], indices_naive[, "row"])
-  spv[i,,2,]<- oracular_set_policy_value(naive.confidence_set, n_test=n_test,
-                                         test= SL.out$df_new, levels=levels_A,
-                                         treatment_name = treatment_name,
-                                         outcome_name = outcome_name, 
-                                         covariates = covariates_name,
-                                         test_potential_outcome = SL.out$potential_outcomes)
+  spv_res <- oracular_set_policy_value(naive.confidence_set, n_test=n_test,
+                                       test= SL.out$df_new, levels=levels_A,
+                                       treatment_name = treatment_name,
+                                       outcome_name = outcome_name, 
+                                       covariates = covariates_name,
+                                       gAW.pred = gAW.pred,
+                                       test_potential_outcome = SL.out$potential_outcomes)
+  spv[i,,2,]<- spv_res[[1]]
+  spv_d[i,,2,]<- spv_res[[2]]
+                                         
   cov_relaxed[i,2,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new,
                                        pred_set = naive.confidence_set)
   cov_unif[i,2,]<- coverage_unif(SL.out$optimal_policy_new,pred_set=naive.confidence_set)
@@ -152,18 +163,27 @@ for(i in 1:length(alphas)){
     cov_relaxed[i,3,]<- coverage_relaxed(true_set = SL.out$optimal_policy_new,
                                          pred_set = true_confidence_set)
     cov_unif[i,3,]<- coverage_unif(SL.out$optimal_policy_new,pred_set = true_confidence_set)
-    spv[i,,3,]<- oracular_set_policy_value(true_confidence_set, n_test=n_test,
-                                           test= SL.out$df_new, levels=levels_A,
-                                           treatment_name = treatment_name,
-                                           outcome_name = outcome_name,
-                                           covariates = covariates_name,
-                                           test_potential_outcome=SL.out$potential_outcomes)
+    spv_res <- oracular_set_policy_value(true_confidence_set, n_test=n_test,
+                                         test= SL.out$df_new, levels=levels_A,
+                                         treatment_name = treatment_name,
+                                         outcome_name = outcome_name,
+                                         covariates = covariates_name,
+                                         gAW.pred = gAW.pred, 
+                                         test_potential_outcome=SL.out$potential_outcomes)
+    spv[i,,3,]<- spv_res[[1]]
+    spv_d[i,,3,]<- spv_res[[2]]
 
     heatmaps_r[,,i,r,3] <- heatmap_treatments(true_confidence_set, levels_A) %>% as.matrix()
   print(i)
 }
+################################################
+################  Naive method  ################
+################################################
 
 results <- list(mean_cardinality= mean_cardinality, cov_relaxed=cov_relaxed,
-                  cov_unif=cov_unif, spv=spv,heatmaps_r=heatmaps_r)
+                  cov_unif=cov_unif, spv=spv, spv_d = spv_d ,heatmaps_r=heatmaps_r)
 # Save metrics
-saveRDS(object = results, file = paste0("inst/predictions/plot_results_", type, "_", n, ".rds"))
+saveRDS(object = results, file = paste0("inst/predictions/plot_results_", type, "_", n,"_", name_learner,".rds"))
+
+
+

@@ -105,9 +105,9 @@ generate_data <- function(n, ncov=2, seed=NA, type=c("normal", "complex"), is_RC
       w <- stats::plogis(X[,1] + X[,2] - 0.5)
       beta <- (1 - w) * matrix(beta_low_vec,  nrow=nrow(X), ncol=5, byrow=TRUE) +
         w * matrix(beta_high_vec, nrow=nrow(X), ncol=5, byrow=TRUE)
-      epsilon <- matrix(stats::rnorm(nrow(X) * 5), nrow=nrow(X), ncol=5)
+      #epsilon <- matrix(stats::rnorm(nrow(X) * 5), nrow=nrow(X), ncol=5)
       
-      treatment_assignment <- beta + epsilon
+      treatment_assignment <- beta #+ epsilon
       
       probs <- exp(treatment_assignment - apply(treatment_assignment, 1, max))
       expit_treatment <- probs / rowSums(probs)
@@ -127,8 +127,8 @@ generate_data <- function(n, ncov=2, seed=NA, type=c("normal", "complex"), is_RC
         (w_high/total_w) * matrix(beta_high, nrow=nrow(X), ncol=5, byrow=TRUE) + 
         (w_medium/total_w) * matrix(beta_medium, nrow=nrow(X), ncol=5, byrow=TRUE)
       
-      epsilon <- matrix(stats::rnorm(nrow(X) * 5), nrow=nrow(X), ncol=5)
-      treatment_assignment <- beta + epsilon
+      #epsilon <- matrix(stats::rnorm(nrow(X) * 5), nrow=nrow(X), ncol=5)
+      treatment_assignment <- beta #+ epsilon
       probs <- exp(treatment_assignment - apply(treatment_assignment, 1, max))
       expit_treatment <- probs / rowSums(probs)
       A <- t(apply(expit_treatment, 1, function(p) stats::rmultinom(1, 1, p)))

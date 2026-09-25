@@ -4,6 +4,7 @@
 .Rhistory
 .Rproj.user/
 *.rds
+*.csv
 inst/predictions/*.rds
 inst/images/
 .Rproj.user
@@ -11,3 +12,9 @@ inst/images/
 inst/images/
 inst/predictions/
 inst/doc
+inst/toy_example_simple/images/
+inst/toy_example_simple/25.09.simus/
+inst/traumacare_example/images/
+inst/traumacare_example/intermediate/
+inst/traumacare_example/cohort_test.csv
+inst/traumacare_example/cohort_train.csv

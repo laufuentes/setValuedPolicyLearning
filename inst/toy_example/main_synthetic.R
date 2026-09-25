@@ -59,11 +59,15 @@ set.seed(seed)
 VFolds <- 3 # folds to split data
 synthetic_scenario <- TRUE
 type <- "normal" # additional name for images (here: type of synthetic scenario)
+
+name_learner <- "new"
+
+
 is_RCT <- ifelse(type=="normal", FALSE, TRUE)
 RCT_file<- ifelse(is_RCT==TRUE,"RCT/", "non_RCT/")
 n_samples <- c(6000, 12000, 18000)
-ncov <- ifelse(type=="normal",4, 2)
-n_test <- 50
+ncov <- 4
+n_test <- 100
 
 random_rate <- seq(0,1,0.1) # random rates to test
 n_rate <- length(random_rate) # number of random rates to test
@@ -97,8 +101,8 @@ for (n in n_samples){
     select(starts_with("Potential_outcomes."))
 
   # ── Define data parameters  ─────────────────────────────────────────────────
-  covariates_name <- if(type=="normal"){
-    c("X1","X2", "X3", "X4")}else{c("X1","X2")}# name for covariates in dataset
+  covariates_name <- c("X1","X2", "X3", "X4")
+    #if(type=="normal"){c("X1","X2", "X3", "X4")}else{c("X1","X2")}# name for covariates in dataset
   X <- SL.out$df_obs[,covariates_name] %>% as.matrix()
   X_new <- SL.out$df_new_sample[,covariates_name] %>% as.matrix()
 
@@ -117,30 +121,6 @@ for (n in n_samples){
   SL.out$family = family
   ab <- c(min(c(Y,Y_new)),max(c(Y,Y_new)))
 
-  # ── Define libraries for estimation procedures ────────────────────────────────
-  ## Noisy label generation
-  ### options : c("polle", "personalized", "mix")
-  expert_technique <- "polle" # indicator of estimation procedure
-  #### Define the library of experts (Q-models)
-  if(expert_technique %in% c("polle", "mix")){
-    q_learners <- list() %>%
-      add_qlearner(name = "drql_lm", type = "drql",   q_func = "q_glm",
-                   action_name=treatment_name, covariates=covariates_name)
-    
-
-    #### Define the propensity score learner (G-model)
-    g_learner <- glearner(m, g_func = "g_rf", sl_library = NULL, num.trees = 500)
-  }
-
-  ## Nonconformity score learner (nuisance)
-  SL.library.nuisance <- c(
-    "SL.mean",
-    "SL.glm",
-    "SL.xgboost",
-    "SL.ksvm",
-    "SL.ranger"
-  )
-
   # ── 0) Divide data into three even sets ─────────────────────────────────────
   # ── Noisy label generation, scoring model & calibration ─────────────────────
   SL.out$folds <- SuperLearner::CVFolds(n, id = NULL,Y = Y,
@@ -151,8 +131,9 @@ for (n in n_samples){
   train2 <-  SL.out$df_obs[SL.out$folds[[2]],] # score model and nuisances
   test <-  SL.out$df_obs[SL.out$folds[[3]],] # calibration
   optimal_policy_test <- SL.out$optimal_policy[SL.out$folds[[3]]]
-  true_potential_outcomes_test <- df_complete[SL.out$folds[[3]],] %>% select(starts_with("Potential_outcomes."))
-
+  true_potential_outcomes_test <- df_complete[SL.out$folds[[3]],] %>% 
+    select(starts_with("Potential_outcomes."))
+  
   # ── 1) Black-box label generation (i.e. estimates of (X,A*)) ───────────────────────
   ## 1.1) Generate random labels (i.e. A_rd)
   A_rd <- apply(data.frame(1:nrow(test)),1,function(i)sample(as.numeric(levels_A),size=1))
@@ -162,60 +143,22 @@ for (n in n_samples){
     el <- optimal_policy_test[[x]]
     length_el <- length(el)
     if(length_el==1){el}else{el[sample(length_el,1)]}})
-
+ 
+  ## Learn the treatment assignment mechanism by doctor's. 
+  SL.out$g.reg.train_spv <- grf::probability_forest(X = X[SL.out$folds[[1]],], 
+                                                    Y =  A[SL.out$folds[[1]]] %>% as.factor())
+  
+  #randomForest::randomForest(x = train1[,covariates_name],y = train1[,treatment_name])
   ## 1.3) Estimate A* (OTR) using experts
   # Training performed on train1
   # Two predictions:
   # (i) on test
   # (ii) on SL.out$df_new_sample
-  if(expert_technique!= "personalized"){
-    SL.init1 = expert_fit_predict(train1, test, new = SL.out$df_new_sample,
-                                  covariates = covariates_name,
-                                  treatment_name=treatment_name, 
-                                  outcome_name=outcome_name,
-                                  qlearners_list = q_learners, 
-                                  g_model=g_learner)
-
-    SL.out$libraryNames <- SL.init1[["learner_names"]] # expert names
-    numalgs <- length(SL.out$libraryNames) # number of experts
-
-    # predictions on calibration
-    SL.out$doptFactorPredict_test <- SL.init1[["expert_policies"]]
-    # predictions on new data
-    SL.out$doptFactorPredict_new <- SL.init1[["expert_policies_new"]]
-
-    if(expert_technique=="mix"){
-      additional_methods <- NULL # replace with additional learning methods
-      SL.out$libraryNames <- c(SL.out$libraryNames, additional_methods)
-      numalgs <- length(SL.out$libraryNames)
-
-      other_preds_test <- NULL # replace: predictions on calibration set
-      SL.out$doptFactorPredict_test <- cbind(SL.out$doptFactorPredict_test,
-                                             array(as.numeric(other_preds_test),
-                                                   dim = c(length(other_preds_test), numalgs),
-                                                   dimnames = list(NULL, additional_methods)))
-
-      other_preds_new <- # replace: predictions on new data
-        SL.out$doptFactorPredict_new <- cbind(SL.out$doptFactorPredict_test,
-                                              array(as.numeric(other_preds_new),
-                                                    dim = c(length(other_preds_new), numalgs),
-                                                    dimnames = list(NULL, other_preds_new)))
-    }
-  } else{
-    SL.out$libraryNames <- NULL # replace with learner names
-    numalgs <- length(SL.out$libraryNames)
-
-    pred_calibration <- NULL # replace with predictions on calibration
-    SL.out$doptFactorPredict_test <- array(as.numeric(pred_calibration),
-                                           dim = c(length(pred_calibration), numalgs),
-                                           dimnames = list(NULL, SL.out$libraryNames))
-
-    pred_new_data <- NULL # replace with predictions on new
-    SL.out$doptFactorPredict_new <- array(as.numeric(pred_new_data),
-                                          dim = c(length(pred_new_data), numalgs),
-                                          dimnames = list(NULL, 
-                                                          SL.out$libraryNames))
-  }
+  X_train <- X[SL.out$folds[[1]],] 
+  A_train <- A[SL.out$folds[[1]]]
+  Y_train <- Y[SL.out$folds[[1]]]
+  
+  source("inst/toy_example/train_policies.R")
 
   # Generate noisy calibration labels
   unweighted_probs <- weighted_probs_experts(fitted_experts = SL.out$doptFactorPredict_test,
@@ -223,39 +166,36 @@ for (n in n_samples){
                                              df_pred = test,
                                              levels = as.numeric(levels_A))
   unweighted_cal <- apply(apply(unweighted_probs, 1, function(x){
-    rmultinom(1,1,prob=x)}),
-    2,
-    which.max)
+    rmultinom(1,1,prob=x)}), 2, which.max)
 
   # ── 2) Nonconformity score model (i.e. s(X,A)) ───────────────────────
   # Training performed on train2
   # Two predictions:
   # (i) on test
-  # (ii) on SL.out$df_new_sample
-  SL.out$QAW.reg.train = SuperLearner::SuperLearner( # Outcome model
-    Y=train2[,outcome_name], X = train2[,c(covariates_name,treatment_name)],
-    SL.library=SL.library.nuisance, family = SL.out$family)
-
-  SL.out$g.reg.train <- randomForest::randomForest(x = train2[,covariates_name],
-                                                   y = train2[,treatment_name])
+  # (ii) on SL.out$df_new_sample 
+    SL.out$QAW.reg.train = grf::regression_forest(X = cbind(
+      X[SL.out$folds[[2]],], A[SL.out$folds[[2]]]), 
+      Y = Y[SL.out$folds[[2]]], seed = seed)
+    
+    potential_outcomes_test <- do.call(cbind,lapply(1:m, function(val) {
+      new_data <- cbind(X[SL.out$folds[[3]],], factor(val, levels=levels_A) %>% as.numeric())
+      stats::predict(SL.out$QAW.reg.train, newdata = new_data)$predictions}))
+    
+    potential_outcomes_new <- do.call(cbind,lapply(1:m, function(val) {
+      new_data <- cbind(X_new, factor(val, levels=levels_A) %>% as.numeric())
+      stats::predict(SL.out$QAW.reg.train, newdata = new_data)$predictions}))
+  
+  SL.out$g.reg.train <- grf::probability_forest(X = train2[,covariates_name],
+                                                Y = train2[,treatment_name])
 
   # 2.2) Predict nonconformity scores (margin score)
   # Nonconformity scores on calibration data
-  potential_outcomes_test <- do.call(cbind,lapply(1:m, function(val) {
-    new_data <- test[, c(covariates_name, treatment_name)]
-    new_data[,treatment_name] <- factor(val, levels=levels_A)
-    SuperLearner::predict.SuperLearner(SL.out$QAW.reg.train, newdata = new_data)$pred}))
   margin_po <-  margin_score(potential_outcomes_test)
 
   # Nonconformity scores on oracular data
   SL.out$true_score <- margin_po[cbind(1:nrow(test), SL.out$true_cal)]
 
   # Nonconformity scores on new data (used to generate sets)
-  potential_outcomes_new <- do.call(cbind,lapply(1:m, function(val) {
-    new_data <- SL.out$df_new[, c(covariates_name, treatment_name)]
-    new_data[,treatment_name] <- factor(val, levels=levels_A)
-    SuperLearner::predict.SuperLearner(SL.out$QAW.reg.train, newdata = new_data)$pred}))
-
   SL.out$new_scores <- margin_score(potential_outcomes_new)  # score for all potential outcomes from new data
 
   # Oracular nonconformity scores
@@ -271,10 +211,10 @@ for (n in n_samples){
   # Randomness injection
   source("inst/randomness_injection.R")
   # Save results
-  saveRDS(object = SL.out, file = paste0("inst/predictions/", type,"_",n,".rds"))
-
+  saveRDS(object = SL.out, file = paste0("inst/predictions/", type,"_",n,"_", name_learner,".rds"))
+  
   # Create result table
-  source("inst/toy_example/table.R")
+  #source("inst/toy_example/table.R")
   # Evaluate set-valued policies
   source("inst/toy_example/metrics_synthetic.R")
 }

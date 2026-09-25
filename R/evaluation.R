@@ -161,6 +161,7 @@ width <- function(pred_set, levels=1:5){
 #' @param covariates Character vector of covariate names. Defaults to `c("x1", "x2")`.
 #' @param treatment_name String indicating the treatment variable. Defaults to "A".
 #' @param outcome_name String indicating the outcome variable. Defaults to "Y".
+#' @param mod_ps Model to predict the propensity score trained on train1, used for modeling doctor's predictions.
 #' @param n_test Integer indicating the number of policies to sample at random for the set-valued policy.
 #' @param levels Vector of possible treatment/action levels. Defaults to `1:5`.
 #'
@@ -169,7 +170,8 @@ width <- function(pred_set, levels=1:5){
 oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
                                     covariates = c("x1","x2"),
                                     treatment_name = "A",
-                                    outcome_name = "Y",
+                                    outcome_name = "Y", 
+                                    gAW.pred=NULL,
                                     n_test = 1, levels= 1:5) {
 
   n <- nrow(test)
@@ -184,26 +186,52 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
   }
   
   ## ---- 1. FAST policy sampling ----
-  random_policy <- matrix(NA_integer_, n, n_test)
-
-  for (i in seq_len(n)) {
-    allowed <- test_set[[i]]
-
-    if (length(allowed) > 0) {
-      random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
-    } else {
-      random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
-    }
-  }
-
+    random_policy <- matrix(NA_integer_, n, n_test)
+    
+    for (i in seq_len(n)) {
+      allowed <- test_set[[i]]
+      
+      if (length(allowed) > 0) {
+        random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
+      } else {
+        random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
+      }
+    } 
+  
   results <- unlist(
     parallel::mclapply(seq_len(n_test), function(p) {
       d <- random_policy[, p]
       mean(test_potential_outcome[cbind(1:n,d)])
-      }, mc.cores = parallel::detectCores())
+    }, mc.cores = parallel::detectCores())
   )
-
-  results
+  
+  if(!is.null(gAW.pred)){
+    #gAW.pred <- stats::predict(
+    #  mod_ps,
+    #  newdata = test[, covariates, drop = FALSE],
+    #  type = "prob")
+    gAW_bounded <- pmax(gAW.pred, 0.01)
+    
+    non_random_policy <- matrix(NA_integer_, n, n_test)
+    for (i in seq_len(n)) {
+      allowed <- test_set[[i]]
+      
+      if (length(allowed) > 0) {
+        probs_allowed <- gAW_bounded[i, allowed]/sum(gAW_bounded[i, allowed])
+        non_random_policy[i, ] <-  allowed[sample.int(length(allowed), n_test, replace = TRUE, prob = probs_allowed)]
+      } else {
+        non_random_policy[i, ] <- sample.int(m, n_test, replace = TRUE, prob = gAW_bounded[i,])
+      }
+    } 
+    results_non_random <- unlist(
+      parallel::mclapply(seq_len(n_test), function(p) {
+        d <- non_random_policy[, p]
+        mean(test_potential_outcome[cbind(1:n,d)])
+      }, mc.cores = parallel::detectCores())
+    )
+    return(list(results,results_non_random))
+  }
+  return(results)
 }
 
 #' Set-policy value
@@ -219,6 +247,7 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
 #' @param covariates Character vector of covariate names. Defaults to `c("x1", "x2")`.
 #' @param treatment_name String indicating the treatment variable. Defaults to "A".
 #' @param outcome_name String indicating the outcome variable. Defaults to "Y".
+#' @param mod_ps_spv Model to predict the propensity score trained on train1, used for modeling doctor's predictions.
 #' @param mod_y Model to predict the conditional mean outcome (estimate potential outcomes).
 #' @param mod_ps Model to predict the propensity score.
 #' @param ab Float indicating the largest difference in the outcome.
@@ -228,69 +257,228 @@ oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
 #' @return A numeric value representing the estimated set-policy value of the set-valued policy.
 #' @export
 set_policy_value <- function(test_set, test,
-                             covariates = c("x1","x2"),
+                             covariates = c("x1", "x2"),
                              treatment_name = "A",
                              outcome_name = "Y",
-                             mod_y, mod_ps, ab, n_test = 1, levels) {
+                             Q_all_actions, gAW.pred, 
+                             gAW.pred.spv = NULL, 
+                             ab, n_test = 1, levels) {
   n <- nrow(test)
-  m <-length(levels)
+  m <- length(levels)
   row_idx <- seq_len(n)
-  col_offset <- (0:(m - 1)) * n
-
-  if(!is.list(test_set)){
+  
+  # Guarantee levels match 1..m indexing
+  level_map <- setNames(seq_along(levels), levels)
+  
+  if (!is.list(test_set)) {
     test_set <- as.list(test_set)
-    # coords <- which(test_set == 1, arr.ind = TRUE)
-    # test_set <- split(coords[, "col"], coords[, "row"])
   }
   
+  A_vec <- test[[treatment_name]]
+  Y_mat <- matrix(test[[outcome_name]])
+  gAW_bounded <- as.matrix(pmax(gAW.pred, 0.01))
+  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
+  
+  # 1. Uniform Policy Sampling
   random_policy <- matrix(NA_integer_, n, n_test)
-
   for (i in seq_len(n)) {
     allowed <- test_set[[i]]
-
-    if (length(allowed) > 0) {
-      random_policy[i, ] <- allowed[sample.int(length(allowed), 
-                                               n_test, replace = TRUE)]
+    k <- length(allowed)
+    if (k > 0) {
+      random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE)]
     } else {
-      random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
+      random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE)] %>% 
+        as.numeric()
     }
   }
+  
+  # 2. TMLE Evaluator with Explicit Matrix Indexing [row, col]
+  eval_tmle <- function(policy_mat, gAW_mat) {
+    sapply(seq_len(n_test), function(p) {
+      # Map chosen treatment actions to 1..m column indices
+      d_raw <- policy_mat[, p]
+      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
+      
+      # Explicit 2D Matrix Indexing
+      Q_d <- Q_all_actions[cbind(row_idx, d_col)]
+      gAW_d <- gAW_mat[cbind(row_idx, d_col)]
+      
+      SL.ODTR::tmle.d.fun(
+        A   = A_vec,
+        Y   = Y_mat,
+        d   = d_col,
+        Qd  = Q_d,
+        gAW = gAW_d,
+        ab  = ab
+      )$psi
+    })
+  }
+  
+  results <- eval_tmle(random_policy, gAW_bounded)
+  
+  # 3. Non-Random Policy
+  if (!is.null(gAW.pred.spv)) {
+    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
+    
+    non_random_policy <- matrix(NA_integer_, n, n_test)
+    for (i in seq_len(n)) {
+      allowed <- test_set[[i]]
+      k <- length(allowed)
+      if (k > 0) {
+        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
+        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
+        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
+      } else {
+        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
+        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
+          as.numeric()
+      }
+    }
+    
+    results_non_random <- eval_tmle(non_random_policy, gAW_spv_bounded) 
+    return(list(results, results_non_random))
+  }
+  
+  return(results)
+}
 
-  gAW.pred <- stats::predict(
-    mod_ps,
-    newdata = test[, covariates, drop = FALSE],
-    type = "prob"
-  )
-  gAW_bounded <- pmax(gAW.pred, 0.01)
+set_policy_value_plug_in <- function(test_set, test,
+                             Q_all_actions,
+                             gAW.pred.spv = NULL, 
+                             ab, n_test = 1, levels) {
+  n <- nrow(test)
+  m <- length(levels)
+  row_idx <- seq_len(n)
+  
+  # Guarantee levels match 1..m indexing
+  level_map <- setNames(seq_along(levels), levels)
+  
+  if (!is.list(test_set)) {
+    test_set <- as.list(test_set)
+  }
+  
+  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
+  
+  # 1. Uniform Policy Sampling
+  random_policy <- matrix(NA_integer_, n, n_test)
+  for (i in seq_len(n)) {
+    allowed <- test_set[[i]]
+    k <- length(allowed)
+    if (k > 0) {
+      random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE)]
+    } else {
+      random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE)] %>% 
+        as.numeric()
+    }
+  }
+  
+  eval_plug.in <- function(policy_mat) {
+    sapply(seq_len(n_test), function(p) {
+      # Map chosen treatment actions to 1..m column indices
+      d_raw <- policy_mat[, p]
+      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
+      
+      # Explicit 2D Matrix Indexing
+      Q_all_actions[cbind(row_idx, d_col)] %>% mean()
+      })
+  }
+  
+  results <- eval_plug.in(random_policy)
+  
+  # 3. Non-Random Policy
+  if (!is.null(gAW.pred.spv)) {
+    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
+    
+    non_random_policy <- matrix(NA_integer_, n, n_test)
+    for (i in seq_len(n)) {
+      allowed <- test_set[[i]]
+      k <- length(allowed)
+      if (k > 0) {
+        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
+        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
+        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
+      } else {
+        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
+        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
+          as.numeric()
+      }
+    }
+    
+    results_non_random <- eval_plug.in(non_random_policy) 
+    return(list(results, results_non_random))
+  }
+  
+  return(results)
+}
 
-  base_newdata <- test[, covariates, drop = FALSE]
-
-  Q_all_actions <- sapply(levels, function(a) {
-    newdata_temp <- base_newdata
-    newdata_temp[, treatment_name] <- factor(a, levels = levels)
-    stats::predict(mod_y,
-                   newdata = newdata_temp,
-                   type = "response")$pred
-  })
-
-  Y_mat <- matrix(test[, outcome_name])
-
-  results <- unlist(
-  parallel::mclapply(seq_len(n_test), function(p) {
-    d <- random_policy[, p]
-    lin_idx <- row_idx + col_offset[d]
-
-    SL.ODTR::tmle.d.fun(
-      A   = test[, treatment_name],
-      Y   = Y_mat,
-      d   = d,
-      Qd  = Q_all_actions[lin_idx],
-      gAW = gAW_bounded[lin_idx],
-      ab  = ab)$psi
-  }, mc.cores = parallel::detectCores())
-  )
-
-  results
+set_policy_value_plug_in.bootstrap <- function(test_set, test,
+                                     Q_all_actions,
+                                     gAW.pred.spv = NULL, 
+                                     ab, n_test = 1, levels) {
+  n <- nrow(test)
+  m <- length(levels)
+  
+  # Guarantee levels match 1..m indexing
+  level_map <- setNames(seq_along(levels), levels)
+  
+  if (!is.list(test_set)) {
+    test_set <- as.list(test_set)
+  }
+  
+  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
+  row_idx <- matrix(sample.int(n, size = n_test * (n %/% 2), replace = TRUE), 
+                    ncol = n_test, nrow = n %/% 2)
+  
+  # 1. Uniform Policy Sampling
+  random_policy <- matrix(NA_integer_, n)
+  for (i in seq_len(n)) {
+    allowed <- test_set[[i]]
+    k <- length(allowed)
+    if (k > 0) {
+      random_policy[i] <- allowed[sample.int(k, 1, replace = TRUE)]
+    } else {
+      random_policy[i] <- levels[sample.int(m, 1, replace = TRUE)] %>% 
+        as.numeric()
+    }
+  }
+  
+  eval_plug.in <- function(policy_mat) {
+    sapply(seq_len(n_test), function(p) {
+      # Map chosen treatment actions to 1..m column indices
+      d_raw <- policy_mat[row_idx[,p],]
+      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
+      
+      # Explicit 2D Matrix Indexing
+      Q_all_actions[cbind(row_idx[,p], d_col)] %>% mean()
+    })
+  }
+  
+  results <- eval_plug.in(random_policy)
+  
+  # 3. Non-Random Policy
+  if (!is.null(gAW.pred.spv)) {
+    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
+    
+    non_random_policy <- matrix(NA_integer_, n, n_test)
+    for (i in seq_len(n)) {
+      allowed <- test_set[[i]]
+      k <- length(allowed)
+      if (k > 0) {
+        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
+        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
+        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
+      } else {
+        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
+        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
+          as.numeric()
+      }
+    }
+    
+    results_non_random <- eval_plug.in(non_random_policy) 
+    return(list(results, results_non_random))
+  }
+  
+  return(results)
 }
 
 #' Set-policy values for IVF data example
@@ -425,5 +613,35 @@ margin_score <- function(potential_outcomes) {
   score_matrix <- max_vals - potential_outcomes
   score_matrix[cbind(row_indices, which_max)] <- second_max_vals - max_vals
   return(score_matrix)
+}
+
+table.evaluation <- function(test_set, optimal_policy_new,
+                             prop_score_new, potential_outcomes, 
+                             df_new_sample, levels_A, covariates_name, 
+                             treatment_name = "A", outcome_name = "Y"){
+  exact.matches <- sapply(1:length(test_set), function(i) {
+    setequal(test_set[[i]], optimal_policy_new[[i]])%>% 
+      as.numeric()
+  })
+  
+  cardinality.mean <- sapply(1:length(test_set), function(i) {
+    length(test_set[[i]])%>% 
+      as.numeric()
+  }) %>% mean()
+  
+  cov <- sapply(1:length(test_set), function(i) {
+    coverage_strict_single(pred_set = test_set[[i]], true_set = optimal_policy_new[[i]])})
+  
+  spv.mean <- oracular_set_policy_value(test_set = test_set, 
+                                        test = df_new_sample, 
+                                        test_potential_outcome = potential_outcomes, 
+                                        covariates = covariates_name, 
+                                        treatment_name = treatment_name, 
+                                        outcome_name = outcome_name, 
+                                        gAW.pred = prop_score_new, 
+                                        n_test = 1, levels = levels_A)
+  spv.unif <- spv.mean[[1]]
+  spv.propensity <- spv.mean[[2]]
+  return(list(exact.matches, cardinality.mean, cov, spv.unif, spv.propensity))
 }
 
