@@ -7,8 +7,7 @@ in the manuscript.
 ## Introduction
 We implement set-valued policy learning as proposed in [1], where 
 the learning algorithm outputs a set of candidate treatments rather than a single 
-decision. This approach is designed to provide formal coverage guarantees, ensuring 
-that the optimal treatment are included in set-valued policies.
+decision. 
 
 This repository implements the two methods presented in the paper:
 *  *Greatest lower bound* (GLB): Based on upper and lower confidence bounds 
@@ -26,12 +25,9 @@ but it is primarily a reproduction archive.
 * `man/`: Auto-generated documentation for the package functions.
 * `DESCRIPTION`: Metadata and R package dependencies.
 * `inst/`: Reproducibility folder 
-  * `toy_example/`: Scripts for synthetic data experiments and figures. 
-  * `ivf_examples/`: Scripts for the IVF data application.
-  * `main.R`: The entry point for real-world data applications.
-  * `images/`: (Generated) Exports of paper figures.
-  * `predictions/`: (Generated) Model outputs and intermediate results.
-
+  * `toy_examples/`: Scripts for synthetic data experiments and figures. 
+  * `ivf_example/`: Scripts for the IVF data application.
+  * `traumacare_example/`: Scripts for the traumacare data application.
 
 ## Getting started (anonymous version)  
 
@@ -58,9 +54,9 @@ devtools::load_all()
 ## How to reproduce synthetic setting figures 
 
 The scripts are organized by experiment type. Running these will automatically 
-generate the `inst/images/` and `inst/predictions/` folders.
+generate the `images/` folders.
 
 ```
 # Execute the main toy example script
-source("inst/toy_example/main_synthetic.R")
+source("inst/toy_examples/1-main_experiment.R")
 ```
