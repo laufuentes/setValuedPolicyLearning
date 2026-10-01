@@ -49,3 +49,46 @@ binary_to_confidence_set <- function(binary_matrix) {
   }
   split(idx[, "col"], factor(idx[, "row"], levels = seq_len(nrow(binary_matrix))))
 }
+
+utils::globalVariables(c("val", "row_id", "exists"))
+#' Create a standard data block
+#'
+#' Reshapes a 4D array into a long-format data frame.
+#'
+#' @param mech_index Integer index for the mechanism.
+#' @param mech_name String label for the mechanism.
+#' @param array_a 4D array with dimensions: (level, rep, mechanism, rate).
+#' @param alpha_vec Vector of alpha levels.
+#' @param rate_data Vector of rate labels.
+#' @export
+make_block <- function(mech_index, mech_name, array_a, alpha_vec, rate_data) {
+  n_i <- dim(array_a)[4]   # random rate index
+  n_a <- dim(array_a)[1]   # level index
+  purrr::map_dfr(1:n_i, function(i) {
+    purrr::map_dfr(1:n_a, function(a) {
+      data.frame(
+        value = array_a[a, , mech_index, i], mechanism = mech_name,
+        level = paste0(alpha_vec[a]), type = paste0(rate_data[i])
+      )
+    })
+  })
+}
+
+#' Create a simplified data block
+#'
+#' Reshapes a 3D array where the first dimension is already a composite or vector.
+#'
+#' @param mech_index Integer index for the mechanism.
+#' @param mech_name String label for the mechanism.
+#' @param array_a 3D array with dimensions: (value, mechanism, rate).
+#' @param rate_data Vector of rate labels.
+#' @export
+make_smaller_block <- function(mech_index, mech_name, array_a, rate_data){
+  purrr::map_dfr(1:length(array_a[1,mech_index,]), function(i) {
+    data.frame(
+      value = array_a[ , mech_index, i],
+      mechanism = mech_name,
+      type = paste0(rate_data[i])
+    )
+  })
+}
