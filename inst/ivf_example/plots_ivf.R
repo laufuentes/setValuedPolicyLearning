@@ -32,7 +32,7 @@ density_plot <- ggplot2::ggplot(SL.out$data_toghether,
     legend.text = ggplot2::element_text(size = 16))
 
 ggplot2::ggsave(density_plot,
-                filename=paste0("inst/images/density_",type,".pdf"),
+                filename=paste0("inst/ivf_example/images/density_",type,".pdf"),
                 width = 10, height = 8)
 
 # ECDF plot
@@ -57,7 +57,7 @@ ecdf_plot <- ggplot2::ggplot(SL.out$data_toghether,
     legend.text = ggplot2::element_text(size = 16))
 
 ggplot2::ggsave(ecdf_plot,
-                filename=paste0("inst/images/ecdf_",type,".pdf"),
+                filename=paste0("inst/ivf_example/images/ecdf_",type,".pdf"),
                 width = 10, height = 8)
 
 # # remove for GIF
@@ -317,7 +317,7 @@ spv_plot <- ggplot2::ggplot(spv_data,
     strip.text = ggplot2::element_text(size = 20))
 
 ggplot2::ggsave(spv_plot,
-                filename=paste0("inst/images/spv_plot_Y_",type,".pdf"),
+                filename=paste0("inst/ivf_example/images/spv_plot_Y_",type,".pdf"),
                 width = 30, height = 15)
 
 hline_labels_xi <- data.frame(
@@ -364,7 +364,7 @@ spv_plot_xi <- ggplot2::ggplot(spv_data,
     strip.text = ggplot2::element_text(size = 20))
 
 ggplot2::ggsave(spv_plot_xi,
-                filename=paste0("inst/images/spv_plot_xi_",type,".pdf"),
+                filename=paste0("inst/ivf_example/images/spv_plot_xi_",type,".pdf"),
                 width = 30, height = 15)
 
 # Set-policy value of Y vs. set-policy value for xi
@@ -438,7 +438,7 @@ mean_cardinality_plot <- ggplot2::ggplot(data=mean_cardinality_data,
     strip.text = ggplot2::element_text(size = 20))
 
 ggplot2::ggsave(mean_cardinality_plot,
-                filename=paste0("inst/images/width_boxplots_", type, ".pdf"),
+                filename=paste0("inst/ivf_example/images/width_boxplots_", type, ".pdf"),
                 width = 15, height = 8)
 
 # Heatmap plot for different set-valued policy learning approaches
@@ -495,7 +495,7 @@ for (t in 1:dim(heatmaps_r)[5]){
   multi_page <- gridExtra::marrangeGrob(grobs = plots_completed, 
                                         nrow = 1, ncol = 1)
   ggplot2::ggsave(
-    filename = paste0("inst/images/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
+    filename = paste0("inst/ivf_example/images/", "Heatmap_", names_experts[t], "_", type, ".pdf"),
     multi_page, width = 15, height = 8)
 }
 
@@ -537,7 +537,7 @@ plot_spv_level_error_bars_Y <- ggplot2::ggplot(spv_data,
     axis.text = ggplot2::element_text(size = 20),
     strip.text = ggplot2::element_text(size = 20))
 
-ggplot2::ggsave(plot_spv_level_error_bars_Y, filename=paste0("inst/images/Level_SPV_error_bars_Y_", type,".pdf"), width = 15, height = 8)
+ggplot2::ggsave(plot_spv_level_error_bars_Y, filename=paste0("inst/ivf_example/images/Level_SPV_error_bars_Y_", type,".pdf"), width = 15, height = 8)
 
 
 
@@ -581,6 +581,6 @@ plot_spv_level_error_bars_xi <- ggplot2::ggplot(spv_data,
     strip.text = ggplot2::element_text(size = 20))
 
 ggplot2::ggsave(plot_spv_level_error_bars_xi, 
-                filename=paste0("inst/images/Level_SPV_error_bars_xi_", type,".pdf"), 
+                filename=paste0("inst/ivf_example/images/Level_SPV_error_bars_xi_", type,".pdf"), 
                 width = 15, height = 8)
 

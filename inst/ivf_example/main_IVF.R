@@ -190,9 +190,9 @@ potential_outcomes_new <- do.call(cbind,lapply(1:m, function(val) {
 SL.out$new_scores <- margin_score(potential_outcomes_new)  # score for all potential outcomes from new data
 
 # Randomness injection
-source("inst/randomness_injection.R")
+source("inst/ivf_example/randomness_injection.R")
 # Save results
-saveRDS(object = SL.out, file = paste0("inst/predictions/", type, ".rds"))
+saveRDS(object = SL.out, file = paste0("inst/ivf_example/", type, ".rds"))
 
 # Evaluate set-valued policies and generate plot
 source("inst/ivf_example/plots_ivf.R")
