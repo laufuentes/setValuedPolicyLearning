@@ -1,35 +1,3 @@
-#' Average uniform coverage
-#'
-#' Computes the average proportion of the true set that is contained within
-#' the predicted set. This is a normalized measure of recall across multiple
-#' observations.
-#'
-#' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
-#' @param pred_set A `list` of numeric or character vectors representing the predicted sets.
-#'
-#' @return A numeric value representing the mean coverage (proportion of
-#'   intersected elements over true set size) across all observations.
-#' @export
-#'
-#' @examples
-#' true <- list(c(1, 2), c(3))
-#' pred <- list(c(1), c(3, 4))
-#' coverage_unif(true, pred)
-coverage_unif <- function(true_set, pred_set) {
-  n <- length(true_set)
-  total <- 0
-
-  for (i in seq_len(n)) {
-    ti <- true_set[[i]]
-    if (length(ti) == 0) next
-
-    total <- total +
-      length(intersect(ti, pred_set[[i]])) / length(ti)
-  }
-
-  total / n
-}
-
 #' Average relaxed coverage
 #'
 #' Computes the average proportion of the true set that is contained within
@@ -72,7 +40,7 @@ coverage_relaxed <- function(true_set, pred_set){
 #'
 #' @param true_set A `list` of numeric or character vectors representing the ground truth sets.
 #' @param pred_set A `list` of numeric or character vectors representing the predicted sets.
-#'
+#' 
 #' @return A numeric value representing the mean coverage (proportion of
 #'   intersected elements over true set size) across all observations.
 #' @export
@@ -121,364 +89,168 @@ coverage_strict <- function(true_set, pred_set){
   mean(coverage)
 }
 
-#' Average width of prediction set
+#' Plug-in set-policy value
 #'
-#' Computes the mean width the predicted set.
-#'
-#' @param pred_set A `list` of numeric or character vectors representing the predicted sets.
-#' @param levels Vector of possible treatment levels. Defaults to `1:5`.
-#'
-#' @return A numeric value representing the mean of the prediction set across all observations.
-#' @export
-#'
-#' @examples
-#' pred <- list(c(1), c(3, 4))
-#' width(pred)
-width <- function(pred_set, levels=1:5){
-  if(!is.list(pred_set)){
-    coords <- which(pred_set == 1, arr.ind = TRUE)
-    pred_set <- split(coords[, "col"], coords[, "row"])
-  }
-  n <- length(pred_set)
-  m_width <- matrix(0, nrow=n)
-  for(i in 1:n){
-    m_width[i] <- length(pred_set[[i]])
-  }
-  mean(m_width)
-}
-
-#' Oracular set-policy value
-#'
-#' Computes the oracular set-policy value of a set-valued policy using potential outcomes.
-#' **Note:** This function is uses the package `SL.ODTR` from
-#' Montoya, L. M., van der Laan, M. J., Luedtke, A. R., Skeem, J. L., Coyle, J. R.,
-#' & Petersen, M. L. (2023). The optimal dynamic treatment rule superlearner:
-#' considerations, performance, and application to criminal justice interventions.
+#' Computes the plug-in set-policy value of a set-valued policy using 
+#' estimated conditional means.
 #'
 #' @param test_set A `list` of numeric or character vectors representing the ground truth sets.
 #' @param test Data frame used for prediction (calibration/test set).
-#' @param test_potential_outcome A data frame containing the potential outcomes.
-#' @param covariates Character vector of covariate names. Defaults to `c("x1", "x2")`.
-#' @param treatment_name String indicating the treatment variable. Defaults to "A".
-#' @param outcome_name String indicating the outcome variable. Defaults to "Y".
-#' @param mod_ps Model to predict the propensity score trained on train1, used for modeling doctor's predictions.
-#' @param n_test Integer indicating the number of policies to sample at random for the set-valued policy.
-#' @param levels Vector of possible treatment/action levels. Defaults to `1:5`.
+#' @param Q.all.actions A data frame containing the estimated conditional means.
+#' @param gAX.pred  A data frame containing the estimated propensity scores
+#' @param levels Vector of possible treatment/action levels. Defaults to `1:4`.
+#' @param zero_indexed A logical indicator for binary treatments. 
 #'
-#' @return A numeric value representing the oracular set-policy value of the set-valued policy.
+#' @return A list with two numeric values representing the uniform set-policy 
+#' value and propensity set-policy value.
 #' @export
-oracular_set_policy_value <- function(test_set, test, test_potential_outcome,
-                                    covariates = c("x1","x2"),
-                                    treatment_name = "A",
-                                    outcome_name = "Y", 
-                                    gAW.pred=NULL,
-                                    n_test = 1, levels= 1:5) {
+set_policy_value_plug_in <- function(test_set, test, Q.all.actions,
+                                    gAX.pred, levels= 1:4, zero_indexed = FALSE) {
 
   n <- nrow(test)
   m<- length(levels)
   row_idx <- seq_len(n)
   col_offset <- (0:(m - 1)) * n
 
-  if(!is.list(test_set)){
-    test_set <- as.list(test_set)
-    # coords <- which(test_set == 1, arr.ind = TRUE)
-    # test_set <- split(coords[, "col"], coords[, "row"])
-  }
+  test_set <- if (is.list(test_set)) test_set else as.list(test_set)
+  if (zero_indexed) test_set <- lapply(test_set, function(s) s + 1L)
   
-  ## ---- 1. FAST policy sampling ----
-    random_policy <- matrix(NA_integer_, n, n_test)
-    
-    for (i in seq_len(n)) {
-      allowed <- test_set[[i]]
-      
-      if (length(allowed) > 0) {
-        random_policy[i, ] <- allowed[sample.int(length(allowed), n_test, replace = TRUE)]
-      } else {
-        random_policy[i, ] <- sample.int(m, n_test, replace = TRUE)
-      }
-    } 
+  Ind <- matrix(0, n, m)
+  for (i in row_idx) Ind[i, test_set[[i]]] <- 1
+  Ind[rowSums(Ind)==0,] <- 1
   
-  results <- unlist(
-    parallel::mclapply(seq_len(n_test), function(p) {
-      d <- random_policy[, p]
-      mean(test_potential_outcome[cbind(1:n,d)])
-    }, mc.cores = parallel::detectCores())
-  )
+  q_unif <- Ind /rowSums(Ind)
+  results <- rowSums(Q.all.actions * q_unif) %>% mean()
+
+  g_c <- rowSums(Ind * gAX.pred)
+  q_p <- Ind * gAX.pred / g_c
   
-  if(!is.null(gAW.pred)){
-    #gAW.pred <- stats::predict(
-    #  mod_ps,
-    #  newdata = test[, covariates, drop = FALSE],
-    #  type = "prob")
-    gAW_bounded <- pmax(gAW.pred, 0.01)
-    
-    non_random_policy <- matrix(NA_integer_, n, n_test)
-    for (i in seq_len(n)) {
-      allowed <- test_set[[i]]
-      
-      if (length(allowed) > 0) {
-        probs_allowed <- gAW_bounded[i, allowed]/sum(gAW_bounded[i, allowed])
-        non_random_policy[i, ] <-  allowed[sample.int(length(allowed), n_test, replace = TRUE, prob = probs_allowed)]
-      } else {
-        non_random_policy[i, ] <- sample.int(m, n_test, replace = TRUE, prob = gAW_bounded[i,])
-      }
-    } 
-    results_non_random <- unlist(
-      parallel::mclapply(seq_len(n_test), function(p) {
-        d <- non_random_policy[, p]
-        mean(test_potential_outcome[cbind(1:n,d)])
-      }, mc.cores = parallel::detectCores())
-    )
-    return(list(results,results_non_random))
-  }
-  return(results)
+  results_non_random <- rowSums(Q.all.actions * q_p) %>% mean()
+  
+  return(list(results,results_non_random))
+
 }
 
-#' Set-policy value
+#' TMLE set-policy value
 #'
-#' Estimates the uniform set-policy value of a set-valued policy.
-#' **Note:** This function is uses the package `SL.ODTR` from
-#' Montoya, L. M., van der Laan, M. J., Luedtke, A. R., Skeem, J. L., Coyle, J. R.,
-#' & Petersen, M. L. (2023). The optimal dynamic treatment rule superlearner:
-#' considerations, performance, and application to criminal justice interventions.
+#' Computes the TMLE set-policy value of a set-valued policy using 
+#' estimated conditional means and propensity score.
 #'
 #' @param test_set A `list` of numeric or character vectors representing the ground truth sets.
-#' @param test Data frame used for prediction (calibration/test set).
-#' @param covariates Character vector of covariate names. Defaults to `c("x1", "x2")`.
-#' @param treatment_name String indicating the treatment variable. Defaults to "A".
-#' @param outcome_name String indicating the outcome variable. Defaults to "Y".
-#' @param mod_ps_spv Model to predict the propensity score trained on train1, used for modeling doctor's predictions.
-#' @param mod_y Model to predict the conditional mean outcome (estimate potential outcomes).
-#' @param mod_ps Model to predict the propensity score.
-#' @param ab Float indicating the largest difference in the outcome.
-#' @param n_test Integer indicating the number of policies to sample at random for the set-valued policy.
-#' @param levels Vector of possible treatment/action levels. Defaults to `1:5`.
+#' @param Q.all.actions A data frame containing the estimated conditional means.
+#' @param gAX.pred  A data frame containing the estimated propensity scores.
+#' @param Y A vector containing the outcome variable. 
+#' @param A A vector containing the treatment variable.
+#' @param ab A vector containing the minimal and maximal value for Y.
+#' @param levels Vector of possible treatment/action levels. Defaults to `1:4`.
+#' @param zero_indexed A logical indicator for binary treatments. 
+#' @param eps.g A numeric scalar that sets the minimum allowed value for propensity 
+#' score upper and lower bound estimations. Defaults to sqrt(.Machine$double.eps).
+#' @param eps.Q A numeric scalar that sets the minimum allowed value for conditional 
+#' mean upper and lower bound estimations. Defaults to 1e-3.
 #'
-#' @return A numeric value representing the estimated set-policy value of the set-valued policy.
+#' @return A list with two numeric values representing the estimated uniform
+#'  set-policy value and propensity set-policy value.
 #' @export
-set_policy_value <- function(test_set, test,
-                             covariates = c("x1", "x2"),
-                             treatment_name = "A",
-                             outcome_name = "Y",
-                             Q_all_actions, gAW.pred, 
-                             gAW.pred.spv = NULL, 
-                             ab, n_test = 1, levels) {
-  n <- nrow(test)
-  m <- length(levels)
+set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab, 
+                                  levels = 1:4, zero_indexed = FALSE, eps.g = 1e-3, 
+                                  eps.Q = sqrt(.Machine$double.eps)) {
+  n <- length(Y) 
+  m <- length(levels) 
   row_idx <- seq_len(n)
+  A_col <- as.integer(setNames(seq_along(levels), levels)[as.character(A)])
   
-  # Guarantee levels match 1..m indexing
-  level_map <- setNames(seq_along(levels), levels)
+  conf <- if (is.list(test_set)) test_set else as.list(test_set)
+  if (zero_indexed) conf <- lapply(conf, function(s) s + 1L)   # -> 1-indexed
   
-  if (!is.list(test_set)) {
-    test_set <- as.list(test_set)
+  rng <- ab[2] - ab[1]
+  Y01 <- (Y - ab[1]) / rng
+  Q01 <- pmin(pmax((as.matrix(Q.all.actions) - ab[1]) / rng, eps.Q), 1 - eps.Q)
+  
+  g <- pmax(as.matrix(gAX.pred), eps.g)
+  g <- g / rowSums(g)
+  
+  Q_obs <- Q01[cbind(row_idx, A_col)]
+
+  # generic targeting step: q_mat = target weights, H_mat = clever covariates (n x m)
+  tmle <- function(q_mat, H_mat) {
+    H_obs <- H_mat[cbind(row_idx, A_col)]
+    fit <- stats::glm(Y01 ~ -1 + H_obs, 
+                      family = stats::binomial(), 
+                      offset = qlogis(Q_obs))
+    e <- fit$coefficients["H_obs"] #unname(stats::coef(fit)[1]); if (is.na(e)) e <- 0
+    Q_star <- stats::plogis(qlogis(Q01) + e * H_mat)
+    ab[1] + rng * mean(rowSums(q_mat * Q_star))
   }
   
-  A_vec <- test[[treatment_name]]
-  Y_mat <- matrix(test[[outcome_name]])
-  gAW_bounded <- as.matrix(pmax(gAW.pred, 0.01))
-  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
+  # uniform SPV
+  Ind <- matrix(0, n, m)
+  for (i in row_idx) Ind[i, conf[[i]]] <- 1
+  Ind[rowSums(Ind)==0,] <- 1
   
-  # 1. Uniform Policy Sampling
-  random_policy <- matrix(NA_integer_, n, n_test)
-  for (i in seq_len(n)) {
-    allowed <- test_set[[i]]
-    k <- length(allowed)
-    if (k > 0) {
-      random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE)]
-    } else {
-      random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE)] %>% 
-        as.numeric()
-    }
-  }
+  q_unif <- Ind /rowSums(Ind)
+  res_unif <- tmle(q_unif, (q_unif / g))
   
-  # 2. TMLE Evaluator with Explicit Matrix Indexing [row, col]
-  eval_tmle <- function(policy_mat, gAW_mat) {
-    sapply(seq_len(n_test), function(p) {
-      # Map chosen treatment actions to 1..m column indices
-      d_raw <- policy_mat[, p]
-      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
-      
-      # Explicit 2D Matrix Indexing
-      Q_d <- Q_all_actions[cbind(row_idx, d_col)]
-      gAW_d <- gAW_mat[cbind(row_idx, d_col)]
-      
-      SL.ODTR::tmle.d.fun(
-        A   = A_vec,
-        Y   = Y_mat,
-        d   = d_col,
-        Qd  = Q_d,
-        gAW = gAW_d,
-        ab  = ab
-      )$psi
-    })
-  }
+  # propensity SPV
+  g_c <- rowSums(Ind * g)
+  q_p <- Ind * g / g_c
+  res_prop <- tmle(q_p, Ind / g_c)
   
-  results <- eval_tmle(random_policy, gAW_bounded)
-  
-  # 3. Non-Random Policy
-  if (!is.null(gAW.pred.spv)) {
-    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
-    
-    non_random_policy <- matrix(NA_integer_, n, n_test)
-    for (i in seq_len(n)) {
-      allowed <- test_set[[i]]
-      k <- length(allowed)
-      if (k > 0) {
-        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
-        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
-        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
-      } else {
-        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
-        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
-          as.numeric()
-      }
-    }
-    
-    results_non_random <- eval_tmle(non_random_policy, gAW_spv_bounded) 
-    return(list(results, results_non_random))
-  }
-  
-  return(results)
+  list(results = res_unif, results_non_random = res_prop)
 }
 
-set_policy_value_plug_in <- function(test_set, test,
-                             Q_all_actions,
-                             gAW.pred.spv = NULL, 
-                             ab, n_test = 1, levels) {
-  n <- nrow(test)
-  m <- length(levels)
+#' AIPW set-policy value
+#'
+#' Computes the AIPW set-policy value of a set-valued policy using 
+#' estimated conditional means and propensity score.
+#'
+#' @param test_set A `list` of numeric or character vectors representing the ground truth sets.
+#' @param Q.all.actions A data frame containing the estimated conditional means.
+#' @param gAX.pred  A data frame containing the estimated propensity scores.
+#' @param Y A vector containing the outcome variable. 
+#' @param A A vector containing the treatment variable.
+#' @param levels Vector of possible treatment/action levels. Defaults to `1:4`.
+#' @param zero_indexed A logical indicator for binary treatments. 
+#'
+#' @return A list with two numeric values representing the estimated uniform 
+#' set-policy value and propensity set-policy value.
+#' @export
+set_policy_value_aipw <- function(test_set, Q.all.actions, gAX.pred, Y, A, 
+                                  levels= 1:4, zero_indexed = FALSE) {
+  
+  n <- nrow(Q.all.actions)
+  m<- length(levels)
   row_idx <- seq_len(n)
+  col_offset <- (0:(m - 1)) * n
+  A_col <- as.integer(setNames(seq_along(levels), levels)[as.character(A)])
   
-  # Guarantee levels match 1..m indexing
-  level_map <- setNames(seq_along(levels), levels)
-  
-  if (!is.list(test_set)) {
-    test_set <- as.list(test_set)
+  test_set <- if (is.list(test_set)) test_set else as.list(test_set)
+  if (zero_indexed){
+    test_set <- lapply(test_set, function(s) s + 1L)
   }
   
-  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
+  Ind <- matrix(0, n, m)
+  for (i in row_idx) Ind[i, test_set[[i]]] <- 1
+  Ind[rowSums(Ind)==0,] <- 1
   
-  # 1. Uniform Policy Sampling
-  random_policy <- matrix(NA_integer_, n, n_test)
-  for (i in seq_len(n)) {
-    allowed <- test_set[[i]]
-    k <- length(allowed)
-    if (k > 0) {
-      random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE)]
-    } else {
-      random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE)] %>% 
-        as.numeric()
-    }
-  }
+  q_unif <- Ind /rowSums(Ind)
+  g_obs <- gAX.pred[cbind(row_idx, A_col)]
+  Q.obs <-  Q.all.actions[cbind(row_idx, A_col)]
   
-  eval_plug.in <- function(policy_mat) {
-    sapply(seq_len(n_test), function(p) {
-      # Map chosen treatment actions to 1..m column indices
-      d_raw <- policy_mat[, p]
-      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
-      
-      # Explicit 2D Matrix Indexing
-      Q_all_actions[cbind(row_idx, d_col)] %>% mean()
-      })
-  }
+  m_est_unif <- rowSums(Q.all.actions * q_unif)
+  one_step_unif <- m_est_unif + (q_unif[cbind(row_idx, A_col)]/g_obs)*(Y- Q.obs)
   
-  results <- eval_plug.in(random_policy)
+  results <-  mean(one_step_unif)
   
-  # 3. Non-Random Policy
-  if (!is.null(gAW.pred.spv)) {
-    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
-    
-    non_random_policy <- matrix(NA_integer_, n, n_test)
-    for (i in seq_len(n)) {
-      allowed <- test_set[[i]]
-      k <- length(allowed)
-      if (k > 0) {
-        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
-        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
-        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
-      } else {
-        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
-        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
-          as.numeric()
-      }
-    }
-    
-    results_non_random <- eval_plug.in(non_random_policy) 
-    return(list(results, results_non_random))
-  }
+  g_c <- rowSums(Ind * gAX.pred)
+  q_p    <- Ind * gAX.pred / g_c
+  w <- Ind[cbind(row_idx, A_col)] / g_c
   
-  return(results)
-}
-
-set_policy_value_plug_in.bootstrap <- function(test_set, test,
-                                     Q_all_actions,
-                                     gAW.pred.spv = NULL, 
-                                     ab, n_test = 1, levels) {
-  n <- nrow(test)
-  m <- length(levels)
+  m_est_prop <- rowSums(Q.all.actions * q_p)
+  one_step_prop <- m_est_prop + w*(Y-m_est_prop)
+  results_non_random <- mean(one_step_prop)
   
-  # Guarantee levels match 1..m indexing
-  level_map <- setNames(seq_along(levels), levels)
-  
-  if (!is.list(test_set)) {
-    test_set <- as.list(test_set)
-  }
-  
-  Q_all_actions <- as.matrix(pmin(pmax(Q_all_actions, 0.001), 0.999))
-  row_idx <- matrix(sample.int(n, size = n_test * (n %/% 2), replace = TRUE), 
-                    ncol = n_test, nrow = n %/% 2)
-  
-  # 1. Uniform Policy Sampling
-  random_policy <- matrix(NA_integer_, n)
-  for (i in seq_len(n)) {
-    allowed <- test_set[[i]]
-    k <- length(allowed)
-    if (k > 0) {
-      random_policy[i] <- allowed[sample.int(k, 1, replace = TRUE)]
-    } else {
-      random_policy[i] <- levels[sample.int(m, 1, replace = TRUE)] %>% 
-        as.numeric()
-    }
-  }
-  
-  eval_plug.in <- function(policy_mat) {
-    sapply(seq_len(n_test), function(p) {
-      # Map chosen treatment actions to 1..m column indices
-      d_raw <- policy_mat[row_idx[,p],]
-      d_col <- level_map[as.character(d_raw)] %>% as.numeric()
-      
-      # Explicit 2D Matrix Indexing
-      Q_all_actions[cbind(row_idx[,p], d_col)] %>% mean()
-    })
-  }
-  
-  results <- eval_plug.in(random_policy)
-  
-  # 3. Non-Random Policy
-  if (!is.null(gAW.pred.spv)) {
-    gAW_spv_bounded <- as.matrix(pmax(gAW.pred.spv, 0.01))
-    
-    non_random_policy <- matrix(NA_integer_, n, n_test)
-    for (i in seq_len(n)) {
-      allowed <- test_set[[i]]
-      k <- length(allowed)
-      if (k > 0) {
-        col_idx <- level_map[as.character(allowed)] %>% as.numeric()
-        probs_allowed <- gAW_spv_bounded[i, col_idx] / sum(gAW_spv_bounded[i, col_idx])
-        non_random_policy[i, ] <- allowed[sample.int(k, n_test, replace = TRUE, prob = probs_allowed)]
-      } else {
-        probs_all <- gAW_spv_bounded[i, ] / sum(gAW_spv_bounded[i, ])
-        non_random_policy[i, ] <- levels[sample.int(m, n_test, replace = TRUE, prob = probs_all)] %>% 
-          as.numeric()
-      }
-    }
-    
-    results_non_random <- eval_plug.in(non_random_policy) 
-    return(list(results, results_non_random))
-  }
-  
-  return(results)
+  return(list(results,results_non_random))
 }
 
 #' Set-policy values for IVF data example
@@ -502,7 +274,8 @@ set_policy_value_plug_in.bootstrap <- function(test_set, test,
 #' @param mod_ps Model to predict the propensity score.
 #' @param ab Float indicating the largest difference in the outcome.
 #' @param ab_xi Float indicating the largest difference in the second outcome.
-#' @param n_test Integer indicating the number of policies to sample at random for the set-valued policy.
+#' @param n_test Integer indicating the number of policies to sample at random 
+#' for the set-valued policy. Defaults to 1.
 #' @param levels Vector of possible treatment/action levels. Defaults to `1:5`.
 #'
 #' @return A list with the estimated set-policy values (random and lowest
@@ -514,12 +287,10 @@ ivf_set_policy_values <- function(test_set, test,
                                   outcome_name = "Y",
                                   second_outcome ="xi",
                                   mod_y, mod_xi, mod_ps,
-                                  ab, ab_xi, n_test=1,levels) {
+                                  ab, ab_xi, n_test=1, levels) {
 
   if(!is.list(test_set)){
     test_set <- as.list(test_set)
-    # coords <- which(test_set == 1, arr.ind = TRUE)
-    # test_set <- split(coords[, "col"], coords[, "row"])
   }
   n <- nrow(test)
   m <-length(levels)
@@ -537,11 +308,11 @@ ivf_set_policy_values <- function(test_set, test,
         lowest_policy[i, ] <- 1
     }}
 
-  gAW.pred <- stats::predict(
+  gAX.pred <- stats::predict(
     mod_ps,
     newdata = test[, covariates, drop = FALSE],
     type = "prob")
-  gAW_bounded <- pmax(gAW.pred, 0.01)
+  gAW_bounded <- pmax(gAX.pred, 0.01)
 
   base_newdata <- test[, covariates, drop = FALSE]
 
@@ -615,10 +386,33 @@ margin_score <- function(potential_outcomes) {
   return(score_matrix)
 }
 
+#' Complete evaluation of a set-valued policy in the synthetic settings.
+#'
+#'
+#'
+#' @param test_set A `list` of numeric or character vectors representing the 
+#' predicted sets.
+#' @param optimal_policy_new A `list` of numeric or character vectors representing 
+#' the true optimal sets.
+#' @param prop_score_new A data frame containing the true propensity scores.
+#' @param potential_outcomes A data frame containing the true potential outcomes.
+#' @param df_new_sample Data frame used for prediction.
+#' @param levels_A Vector of possible treatment/action levels. Defaults to `1:5`.
+#' @param covariates_name Character vector of covariate names. Defaults to `c("x1", "x2")`.
+#' @param treatment_name String indicating the treatment variable. Defaults to "A".
+#' @param outcome_name String indicating the outcome variable. Defaults to "Y".
+#'
+#' @return A list containing different evaluation metrics: exact match, 
+#' strict and relaxed coverage, and set-policy values (uniform and propensity). 
+#' @export
+#'
+#' @examples
+#' margin_score(matrix(runif(10 * 5), 10, 5))
 table.evaluation <- function(test_set, optimal_policy_new,
                              prop_score_new, potential_outcomes, 
-                             df_new_sample, levels_A, covariates_name, 
-                             treatment_name = "A", outcome_name = "Y"){
+                             df_new_sample, levels_A, 
+                             covariates_name, treatment_name = "A", 
+                             outcome_name = "Y"){
   exact.matches <- sapply(1:length(test_set), function(i) {
     setequal(test_set[[i]], optimal_policy_new[[i]])%>% 
       as.numeric()
@@ -632,16 +426,16 @@ table.evaluation <- function(test_set, optimal_policy_new,
   cov <- sapply(1:length(test_set), function(i) {
     coverage_strict_single(pred_set = test_set[[i]], true_set = optimal_policy_new[[i]])})
   
-  spv.mean <- oracular_set_policy_value(test_set = test_set, 
-                                        test = df_new_sample, 
-                                        test_potential_outcome = potential_outcomes, 
-                                        covariates = covariates_name, 
-                                        treatment_name = treatment_name, 
-                                        outcome_name = outcome_name, 
-                                        gAW.pred = prop_score_new, 
-                                        n_test = 1, levels = levels_A)
+  cov.relaxed <- coverage_relaxed(true_set = optimal_policy_new, 
+                                  pred_set = test_set)
+  
+  spv.mean <- set_policy_value_plug_in(test_set = test_set, 
+                                       test = df_new_sample, 
+                                       Q.all.actions = potential_outcomes, 
+                                       gAX.pred = prop_score_new, 
+                                       levels = levels_A)
   spv.unif <- spv.mean[[1]]
   spv.propensity <- spv.mean[[2]]
-  return(list(exact.matches, cardinality.mean, cov, spv.unif, spv.propensity))
+  return(list(exact.matches, cardinality.mean, cov, cov.relaxed, spv.unif, spv.propensity))
 }
 

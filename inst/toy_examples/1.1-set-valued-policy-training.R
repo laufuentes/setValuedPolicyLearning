@@ -61,7 +61,20 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
   
   # Single expert (i.e. classical policy)
   policy_cal <- doptFactorPredict_cal[,selected_methods]
+  # inject noise
+  r <- ifelse(type=="tree", 0.15, 0.1)
+  mix_factor<- stats::rbinom(nrow(calibration), 1, prob=r) # R ~ Ber(r)
+  # Combine noisy labels with random
+  noisy_policy <- mix_factor * A_rd + (1 - mix_factor) * policy_cal[, 1:2]
+  policy_cal_r <- cbind(policy_cal[,1], noisy_policy[,1], 
+                        policy_cal[,2], noisy_policy[,2],
+                        policy_cal[, 3:4])
   
+  selected_methods <- c(selected_methods[1],
+                        paste0(selected_methods[1], paste0(" (r=",r,")")), 
+                        selected_methods[2],
+                        paste0(selected_methods[2],paste0(" (r=",r,")")), 
+                        selected_methods[3:4])
   # ── 2) Train nonconformity score model (i.e. s(X,A)) ───────────────────────
   # Training performed on train2
   # Two predictions:
@@ -69,19 +82,20 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
   # (ii) on SL.out$df_new_sample
   #QAW.reg.train = stats::lm(formula = formula(paste(outcome_name, "~ (", paste(covariates_name, collapse = "+"), ")*", treatment_name)),
   #                                 data = train2)
-  SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
   
-  QAW.reg.train <- SuperLearner::SuperLearner( 
+  SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
+  QAW.reg.train <- SuperLearner::SuperLearner(
     Y = train2[, outcome_name], X = train2[, c(covariates_name, treatment_name)],
     SL.library = SL.library_cond, family = "gaussian")
   
   # ── 3) Build set-valued policies ────────────────────────────────────────────
   # ── 3.1) Conformal set-valued policy learning :calibration step ─────────────
   # Compute margin score on calibration data 
+  
   potential_outcomes_cal <- do.call(cbind,lapply(1:m, function(val) {
-       new_data <- calibration[, c(covariates_name, treatment_name)]
-       new_data[,treatment_name] <- factor(val, levels=levels_A)
-       SuperLearner::predict.SuperLearner(QAW.reg.train, newdata = new_data)$pred}))
+      new_data <- calibration[, c(covariates_name, treatment_name)]
+      new_data[,treatment_name] <- factor(val, levels=levels_A)
+      SuperLearner::predict.SuperLearner(QAW.reg.train, newdata = new_data)$pred}))
   
   # potential_outcomes_cal <- do.call(cbind,lapply(1:m, function(val) {
   #   new_data <- calibration[, c(covariates_name, treatment_name)]
@@ -91,7 +105,7 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
   margin_po <-  margin_score(potential_outcomes_cal)
 
   # Extract scores for different label types
-  r0_scores_policy <- apply(policy_cal,2,function(x){
+  r0_scores_policy <- apply(policy_cal_r,2,function(x){
     margin_po[cbind(1:nrow(calibration), x)]})  # single policy noisy labels 
   
   r0_scores_aggregation <- margin_po[cbind(1:nrow(calibration), 
@@ -106,6 +120,7 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
     new_data <- SL.out$df_new_sample[, c(covariates_name, treatment_name)]
     new_data[,treatment_name] <- factor(val, levels=levels_A)
     SuperLearner::predict.SuperLearner(QAW.reg.train, newdata = new_data)$pred}))
+  
   # potential_outcomes_new <- do.call(cbind,lapply(1:m, function(val) {
   #   new_data <- SL.out$df_new_sample[, c(covariates_name, treatment_name)]
   #   new_data[,treatment_name] <- factor(val, levels=levels_A)
@@ -181,7 +196,7 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
                                      outcome_name = outcome_name)
   
   # ── 4) Collect results for this bootstrap iteration ────────────────────────
-  indices <- c(exact_match = 1, coverage = 3, cardinality = 2, spv_uniform = 4, spv_propensity = 5)
+  indices <- c(exact_match = 1, coverage = 3, relaxed_coverage = 4, cardinality = 2, spv_uniform = 5, spv_propensity = 6)
   c(lapply(indices, function(i) {
       do.call(cbind, c(
         list(

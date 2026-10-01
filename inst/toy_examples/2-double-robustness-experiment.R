@@ -1,0 +1,260 @@
+# ── Set working directory  ──────────────────────────────────────────────────
+root.path <- "~/Documents/PhD/Project 2 - Conformal Policy Sets /setValuedPolicyLearning"
+setwd(root.path)
+
+# ── Required packages  ────────────────────────────────────────────────────────
+source("inst/libraries.R")
+
+# ── Load functions from R folder  ────────────────────────────────────────────
+source("inst/toy_examples/synthetic_data.R")
+source("R/utils.R")
+source("R/evaluation.R")
+source("inst/toy_examples/train_policies.R")
+
+# ── General parameters  ───────────────────────────────────────────────────────
+seed <- 2026
+set.seed(seed)
+VFolds <- 2 # folds to split data
+
+n <- 10000
+type <- "tree"
+alpha <- 0.1
+z <- qnorm(1 - alpha/2)
+n_bootstrap <- 50
+
+# ── Synthetic data generation  ──────────────────────────────────────────────
+## Training observations
+exp <- generate_data(n, is_RCT = FALSE, seed = seed, type = type)
+df_obs <- exp[[1]] # extract observational data
+
+### Test observations
+exp_new_sample <- generate_data(n/2, is_RCT = FALSE, seed = seed+1, type = type)
+# extract observational data
+df_test <- exp_new_sample[[1]]
+potential_outcomes <- exp_new_sample[[2]] %>%
+  select(starts_with("Potential_outcomes."))
+prop_score_new <- exp_new_sample[[4]] 
+
+# ── Define data parameters  ─────────────────────────────────────────────────
+covariates_name <- c("X1","X2", "X3", "X4", "X5")
+treatment_name <- "A" # name of treatment indicator in dataset
+A_new <- df_test[,treatment_name]
+levels_A <- levels(A_new) # treatment levels
+m <- length(levels_A) # number of treatment levels
+
+outcome_name <- "Y" # name of outcome in dataset
+Y <- df_obs[,outcome_name]
+Y_new <- df_test[,outcome_name]
+ab <- c(min(c(Y,Y_new)),max(c(Y,Y_new)))
+
+# ── Divide data in two folds ──────────────────────────────────────────────────
+folds <- SuperLearner::CVFolds(n, id = NULL, Y = Y,
+                               cvControl = SuperLearner::SuperLearner.CV.control(V = VFolds,
+                                                                                 shuffle = TRUE))
+train1 <- df_obs[folds[[1]],] # train set-valued policy
+train2 <-  df_obs[folds[[2]],] # estimating SPV
+
+# ── 1. Train a set-valued policy ──────────────────────────────────────────────
+set.seed(seed)
+lowers <- uppers <- matrix(0, nrow=nrow(df_test), ncol=m)
+if(type=="tree"){
+  glb.model.grf <- grf::regression_forest(
+    X = cbind(train1[,covariates_name], as.numeric(train1[,treatment_name])), 
+    Y = train1[,outcome_name], seed = seed)
+  
+  for (l in as.numeric(levels_A)){
+    data_l <- data.frame(df_test[,covariates_name], A=l)
+    pred <- stats::predict(glb.model.grf, newdata = data_l, estimate.variance = TRUE)
+    se <- sqrt(pred$variance.estimates)
+    lowers[,l] <- pred$predictions - z * se
+    uppers[,l] <- pred$predictions + z * se
+  }
+  uppest_lrw_bound <- apply(lowers, 1, max)
+}else{
+  formula_lm <- stats::as.formula(paste(outcome_name, "~ (", paste(covariates_name, collapse = "+"), ")*", treatment_name))
+  glb.model.lm <- stats::lm(formula = formula_lm, data = train1)
+  
+  for (l in as.numeric(levels_A)){
+    data_l <- data.frame(df_test[,covariates_name], A=factor(l, levels = levels_A))
+    pred <- stats::predict(glb.model.lm, newdata = data_l, se.fit = TRUE)
+    se <- sqrt(pred$se.fit)
+    lowers[,l] <- (pred$fit - z * se) %>% as.numeric()
+    uppers[,l] <- (pred$fit + z * se) %>% as.numeric()
+  }
+  uppest_lrw_bound <- apply(lowers, 1, max)
+}
+conf_set_lm <- binary_to_confidence_set(uppers >= uppest_lrw_bound)
+
+# ── 2. SPV estimation ─────────────────────────────────────────────────────────
+oracular_SPV <- set_policy_value_plug_in(test_set = conf_set_lm, 
+                                         test = df_test, 
+                                         Q.all.actions = potential_outcomes, 
+                                         gAX.pred = prop_score_new, 
+                                         levels = levels_A)
+
+set.seed(seed)
+bootstrap_indices <- replicate(n_bootstrap, 
+  sample(nrow(train2), size = as.integer(nrow(train2) * 0.75), replace = TRUE), 
+  simplify = FALSE)
+
+base_args <- list(
+  test_set = conf_set_lm,
+  test     = df_test,
+  levels   = levels_A,
+  Y        = Y_new,
+  A        = A_new,
+  ab       = ab)
+
+# Pre-build prediction grid for all treatment actions (m levels)
+pred_grid_well <- map(seq_len(m), function(val) {
+  d <- df_test[, c(covariates_name, treatment_name)]
+  d[[treatment_name]] <- factor(val, levels = levels_A)
+  d
+})
+
+pred_grid_miss <- map(seq_len(m), function(val) {
+  d <- df_test[, c("X2", "X3", "X4", "X5", treatment_name)]
+  d[[treatment_name]] <- factor(val, levels = levels_A)
+  d
+})
+
+SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
+
+
+predict_potential_outcomes <- function(model, grid) {
+  sapply(grid, function(newdata) {
+    SuperLearner::predict.SuperLearner(model, newdata = newdata)$pred
+  })
+}
+
+# ── 1. BOOTSTRAP LOOP ─────────────────────────────────────────────────────────
+results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
+  system2("echo", args = sprintf("'iteration %d'", bootstrap_idx), stderr = "")
+  
+  # ── Bootstrap sample setup ──────────────────────────────────────────────────
+  idx_b   <- bootstrap_indices[[bootstrap_idx]]
+  train_b <- train2[idx_b, ]
+  
+  set.seed(seed + bootstrap_idx)
+  
+  
+  # ── Train outcome models (Q) ────────────────────────────────────────────────
+  QAW.reg.train <- SuperLearner::SuperLearner(
+    Y = train_b[, outcome_name],
+    X = train_b[, c(covariates_name, treatment_name)],
+    SL.library = SL.library_cond, family = "gaussian"
+  )
+  potential_outcomes_new <- predict_potential_outcomes(QAW.reg.train, pred_grid_well)
+  
+  QAW.reg.train_misspecified <- SuperLearner::SuperLearner(
+    Y = train_b[, outcome_name], 
+    X = train_b[, c("X2", "X3", "X4", "X5", treatment_name)],
+    SL.library = SL.library_cond, family = "gaussian"
+  )
+  potential_outcomes_new_misspecified <- predict_potential_outcomes(QAW.reg.train_misspecified, pred_grid_miss)
+  
+  # ── Train propensity score models (g) ───────────────────────────────────────
+  gAX.train <- grf::probability_forest(
+    X = train_b[, covariates_name], 
+    Y = as.factor(train_b[, treatment_name])
+  )
+  gAX.pred <- stats::predict(gAX.train, 
+                             newdata = df_test[, covariates_name])$predictions
+  
+  gAX.train_misspecified <- grf::probability_forest(
+    X = train_b[, c("X2", "X3", "X4", "X5")], 
+    Y = as.factor(train_b[, treatment_name])
+  )
+  gAX.pred_misspecified <- stats::predict(gAX.train_misspecified, 
+                                          newdata = df_test[, c("X2", "X3", "X4", "X5")])$predictions
+  
+  # ── Define Model Combinations ───────────────────────────────────────
+  models <- list(
+    correct   = list(Q = potential_outcomes_new, 
+                     g = gAX.pred),
+    Q_miss    = list(Q = potential_outcomes_new_misspecified, 
+                     g = gAX.pred),
+    both_miss = list(Q = potential_outcomes_new_misspecified, 
+                     g = gAX.pred_misspecified))
+  
+  specs <- list(
+    plug_in   = list(fn = set_policy_value_plug_in, 
+                     Q = models$correct$Q, g = models$correct$g),
+    AIPW      = list(fn = set_policy_value_aipw,    
+                     Q = models$correct$Q, g = models$correct$g),
+    TMLE      = list(fn = set_policy_value_tmle,    
+                     Q = models$correct$Q, g = models$correct$g),
+    AIPW_QAX  = list(fn = set_policy_value_aipw,    
+                     Q = models$Q_miss$Q,  g = models$Q_miss$g),
+    TMLE_QAX  = list(fn = set_policy_value_tmle,    
+                     Q = models$Q_miss$Q,  g = models$Q_miss$g),
+    AIPW_both = list(fn = set_policy_value_aipw,    
+                     Q = models$both_miss$Q, g = models$both_miss$g),
+    TMLE_both = list(fn = set_policy_value_tmle,    
+                     Q = models$both_miss$Q, g = models$both_miss$g)
+  )
+  
+  # ── Evaluation ──────────────────────────────────────────────────────────────
+  imap(specs, function(s, name) {
+    args <- c(base_args, list(Q.all.actions = s$Q, gAX.pred = s$g))
+    res  <- do.call(s$fn, args[intersect(names(args), formalArgs(s$fn))])
+    
+    list(
+      df1 = data.frame(estimator = name, value = as.numeric(res[[1]]), stringsAsFactors = FALSE),
+      df2 = data.frame(estimator = name, value = as.numeric(res[[2]]), stringsAsFactors = FALSE)
+    )
+  })}, mc.cores = 4)
+
+df_unif <- map_dfr(results_list, function(b_iter) {
+  map_dfr(b_iter, ~ .x[["df1"]])
+}) |> mutate(SPV = "Uniform SPV")
+
+df_prop <- map_dfr(results_list, function(b_iter) {
+  map_dfr(b_iter, ~ .x[["df2"]])
+}) |> mutate(SPV = "Propensity SPV")
+
+df_all <- bind_rows(df_unif , df_prop)
+  
+hline_data <- data.frame(
+  SPV          = c("Uniform SPV", "Propensity SPV"),
+  target_value = c(oracular_SPV[[1]], oracular_SPV[[2]])
+)
+
+p <- df_all |>
+  mutate(
+    estimator = factor(
+      estimator,
+      levels = c(
+        "plug_in",
+        "AIPW", "TMLE",
+        "AIPW_QAX", "TMLE_QAX",
+        "AIPW_both", "TMLE_both"
+      ),
+      labels = c(
+        "Plug-in",
+        "AIPW", "TMLE",
+        "AIPW (Q-model mis-specified)", "TMLE (Q-model mis-specified)",
+        "AIPW (Both mis-specified)", "TMLE (Both mis-specified)"
+      )
+    )
+  ) |>
+  ggplot(aes(x = estimator, y = value, fill = estimator)) +
+  geom_boxplot(width = 0.5, alpha = 0.7) +
+  geom_hline(
+    data = hline_data,
+    aes(yintercept = target_value),
+    linetype = "dashed",
+    color = "black",
+    linewidth = 0.8
+  ) +
+  facet_grid(~ SPV) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(x = "Estimator", y = "Value")
+
+ggsave(p, 
+       filename =  paste0("inst/toy_examples/images_", type,"/estimators.pdf"), 
+       width = 12, height = 5)

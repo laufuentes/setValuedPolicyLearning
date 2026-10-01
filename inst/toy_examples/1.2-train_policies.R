@@ -167,7 +167,11 @@ train_policies <- function(train_b, train1, calibration, seed) {
   doptFactorPredict_new_naive <- do.call(cbind, pred_new_data_naive)
   numalgs_naive <- ncol(doptFactorPredict_new_naive)
   
-  selected_methods <- c("MACF", "Hybrid_Tree", "drql.ksvm", "ql.lm") # for normal
+  selected_methods <- switch(type,
+                             "tree" = c("MACF", "ql.reg.forest", "drql.ksvm", "ql.lm"),
+                             "linear" = c("MACF", "drql.lm", "drql.ksvm", "ql.lm"), 
+                             "complex" = c("MACF", "drql.lm", "drql.ksvm", "ql.lm"))
+  
   results.policy <- lapply(selected_methods, function(method){
     single.naive <- doptFactorPredict_new_naive[, method]
     table.evaluation(single.naive, 

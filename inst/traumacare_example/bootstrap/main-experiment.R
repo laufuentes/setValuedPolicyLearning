@@ -6,10 +6,10 @@ setwd(root.path)
 source("inst/libraries.R")
 
 # ── Load functions from R folder  ────────────────────────────────────────────
-source("inst/toy_example_simple/synthetic_data.R")
+source("inst/toy_examples/synthetic_data.R")
 source("R/utils.R")
 source("R/evaluation.R")
-source("inst/toy_example_simple/train_policies.R")
+source("inst/toy_examples/train_policies.R")
 
 # ── General parameters  ───────────────────────────────────────────────────────
 seed <- 2026
@@ -17,7 +17,7 @@ set.seed(seed)
 VFolds <- 4 # folds to split data
 
 n <- 10000
-type <- "normal"
+type <- "tree"
 #random_rates <- seq(0,1,0.1)
 alpha <- 0.1
 z <- qnorm(1 - alpha/2)
@@ -74,37 +74,9 @@ set.seed(seed)
 bootstrap_indices <- lapply(1:n_bootstrap, function(i) {
   sample(1:n, size = as.integer(n*0.75), replace = TRUE)})
 
-source("inst/toy_example_simple/set-valued-policy-training.R")
-saveRDS(results_list, file = "inst/toy_example_simple/images/results_list.rds")
-saveRDS(SL.out, file = "inst/toy_example_simple/images/SL.out.rds")
+source("inst/toy_examples/set-valued-policy-training.R")
+saveRDS(results_list, file = "inst/toy_examples/images/results_list.rds")
+saveRDS(SL.out, file = "inst/toy_examples/images/SL.out.rds")
 
 
-source("inst/toy_example_simple/table.R")
-
-# plot ECDF of nonconformity scores
-# data_toghether <- cbind(r0_scores_policy,r0_scores_aggregation) %>%  
-#   as.data.frame() %>% 
-#   pivot_longer(cols = everything(), 
-#                names_to = "Method",
-#                values_to = "Value")
-# 
-# ggplot(data_toghether, aes(x = Value, colour = Method)) +
-#   stat_ecdf(geom = "step", linewidth = 1, alpha=0.75) +
-#   geom_hline(yintercept = 1-alpha, colour = "red") +
-#   stat_ecdf(
-#     data = as.data.frame(true_score),
-#     aes(x = true_score,colour = "Oracular labels"),
-#     linetype = "dashed", colour="black",
-#     linewidth = 1.2
-#   ) +
-#   stat_ecdf(
-#     data = as.data.frame(r1_score),
-#     aes(x = r1_score, colour = "Random labels"),
-#     linetype = "dashed", colour="gray",
-#     linewidth = 1.2
-#   ) +
-#   labs(y = "ECDF", x = "Value", colour = "Method")
-# 
-# ggplot2::ggsave(filename = paste0("inst/toy_example_simple/images/ecdf_", n,".pdf"), 
-#                 width = 10, height = 8)
-
+source("inst/toy_examples/figures.R")

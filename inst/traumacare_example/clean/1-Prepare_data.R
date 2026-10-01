@@ -37,12 +37,12 @@ remove_ids <- which((train$DECES=="Oui") &
 train <- train[if(length(remove_ids)>0){-remove_ids}else{1:nrow(train)},]
 
 # ── Transform numeric variables as numeric  ───────────────────────────────────
-vars_to_num <- c("AGE", 
+vars_to_num <- c(#"AGE", 
                  "FC_ARRIVEE_MEDIC", 
                  "GLASGOW_INITIAL", 
                  "GLASGOW_MOTEUR_INIT", 
                  "HEMOCUE_INITIAL", 
-                 "PAD_ARRIVEE_MEDIC",
+                 #"PAD_ARRIVEE_MEDIC",
                  "PAS_ARRIVEE_MEDIC", 
                  "SHOCK_INDEX", 
                  "SHOCK_INDEX_DIASTOLIQUE", 
@@ -74,16 +74,18 @@ test <- test %>% mutate(across(where(is.character),
                                as.factor))
 
 # Change treatment (NEUROCHIR) to factor
-train$NEUROCHIR <- as.factor(train$NEUROCHIR)
-test$NEUROCHIR <- as.factor(test$NEUROCHIR)
+train$HEMO_SHOCK <- as.factor(train$HEMO_SHOCK)
+test$HEMO_SHOCK <- as.factor(test$HEMO_SHOCK)
+#train$NEUROCHIR <- as.factor(train$NEUROCHIR)
+#test$NEUROCHIR <- as.factor(test$NEUROCHIR)
 # Note that 0 means died and 1 means survived 
 
 # ── Data imputation  ──────────────────────────────────────────────────────────
 # Variables post-NEUROCHIR (not to be imputed)
-remove_variables <- c("NEUROCHIR", "DECES", "CAUSE_DECES", "DELARHDECH", 
+remove_variables <- c("HEMO_SHOCK", "DECES", "CAUSE_DECES", "DELARHDECH", #"NEUROCHIR"
                       "SUBJECT_REF","Y_after_24h_before_28d") #"Y_less_24h", "Y_less_28d",
 
-treatment_name <- "NEUROCHIR" # treatment indicator string
+treatment_name <- "HEMO_SHOCK" #"NEUROCHIR" # treatment indicator string
 
 # Imputation
 Subject_ref_train_test <- rbind(train,test)[,1]
@@ -129,11 +131,11 @@ categ_var <- c("AMPUTATION",
               "ANOMAL_PUPIL_PREHOSP", 
               "FRACAS_BASSIN", 
               "HEMORRAGIE_EXTERNE", 
-              "IOT_PREHOSP", 
+              #"IOT_PREHOSP", 
               "ISCHEMIE_MEMBRE", 
               "MECANISME_CAUSE", 
-              "OSMOTHERAPIE", 
-              "PERTCONINT",
+              #"OSMOTHERAPIE", 
+              #"PERTCONINT",
               "REA_CATECHO")  
 
 
@@ -179,7 +181,7 @@ categ_var_selected <- c(
   "ANOMAL_PUPIL_PREHOSP_Oui", 
   "FRACAS_BASSIN_Oui", 
   "HEMORRAGIE_EXTERNE_Oui", 
-  "IOT_PREHOSP_Oui", 
+  #"IOT_PREHOSP_Oui", 
   "ISCHEMIE_MEMBRE_Oui",
   "MECANISME_CAUSE_Accident_en_montagne_ou_activité_en_plein_air",
   "MECANISME_CAUSE_Arme_à_feu",
@@ -195,8 +197,8 @@ categ_var_selected <- c(
   "MECANISME_CAUSE_Chute_dune_hauteur",
   "MECANISME_CAUSE_Chute_de_sa_hauteur",
   "MECANISME_CAUSE_Traumatisme_par_objet_contondant_non_pénétrant", 
-  "OSMOTHERAPIE_Oui",
-  "PERTCONINT_Oui", 
+  #"OSMOTHERAPIE_Oui",
+  #"PERTCONINT_Oui", 
   "REA_CATECHO_Oui")
 
 # NOTES: 

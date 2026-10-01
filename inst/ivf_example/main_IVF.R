@@ -39,7 +39,6 @@ library(viridisLite)
 
 # ── Load functions from R folder  ────────────────────────────────────────────
 source("R/synthetic_data.R")
-source("R/label-estimation.R")
 source("R/utils.R")
 source("R/evaluation.R")
 

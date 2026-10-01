@@ -9,11 +9,10 @@ inst/predictions/*.rds
 inst/images/
 .Rproj.user
 .positai
-inst/images/
-inst/predictions/
 inst/doc
-inst/toy_example_simple/images/
-inst/toy_example_simple/25.09.simus/
+inst/toy_examples/images_linear/
+inst/toy_examples/images_complex/
+inst/toy_examples/images_tree/
 inst/traumacare_example/images/
 inst/traumacare_example/intermediate/
 inst/traumacare_example/cohort_test.csv
