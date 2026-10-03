@@ -6,21 +6,20 @@ setwd(root.path)
 source("inst/libraries.R")
 
 # ── Load functions from R folder  ────────────────────────────────────────────
-source("inst/toy_examples/synthetic_data.R")
+source("R/synthetic_data.R")
 source("R/utils.R")
 source("R/evaluation.R")
-source("inst/toy_examples/train_policies.R")
 
 # ── General parameters  ───────────────────────────────────────────────────────
 seed <- 2026
 set.seed(seed)
 VFolds <- 2 # folds to split data
 
-n <- 10000
+n <- 20000
 type <- "tree"
 alpha <- 0.1
 z <- qnorm(1 - alpha/2)
-n_bootstrap <- 50
+n_bootstrap <- 30
 
 # ── Synthetic data generation  ──────────────────────────────────────────────
 ## Training observations
@@ -28,7 +27,7 @@ exp <- generate_data(n, is_RCT = FALSE, seed = seed, type = type)
 df_obs <- exp[[1]] # extract observational data
 
 ### Test observations
-exp_new_sample <- generate_data(n/2, is_RCT = FALSE, seed = seed+1, type = type)
+exp_new_sample <- generate_data(5000, is_RCT = FALSE, seed = seed+1, type = type)
 # extract observational data
 df_test <- exp_new_sample[[1]]
 potential_outcomes <- exp_new_sample[[2]] %>%
@@ -77,7 +76,7 @@ if(type=="tree"){
   for (l in as.numeric(levels_A)){
     data_l <- data.frame(df_test[,covariates_name], A=factor(l, levels = levels_A))
     pred <- stats::predict(glb.model.lm, newdata = data_l, se.fit = TRUE)
-    se <- sqrt(pred$se.fit)
+    se <- pred$se.fit
     lowers[,l] <- (pred$fit - z * se) %>% as.numeric()
     uppers[,l] <- (pred$fit + z * se) %>% as.numeric()
   }
@@ -86,6 +85,7 @@ if(type=="tree"){
 conf_set_lm <- binary_to_confidence_set(uppers >= uppest_lrw_bound)
 
 # ── 2. SPV estimation ─────────────────────────────────────────────────────────
+### Oracular
 oracular_SPV <- set_policy_value_plug_in(test_set = conf_set_lm, 
                                          test = df_test, 
                                          Q.all.actions = potential_outcomes, 
@@ -97,20 +97,16 @@ bootstrap_indices <- replicate(n_bootstrap,
   sample(nrow(train2), size = as.integer(nrow(train2) * 0.75), replace = TRUE), 
   simplify = FALSE)
 
+# base arguments for SPV functions
 base_args <- list(
   test_set = conf_set_lm,
-  test     = df_test,
-  levels   = levels_A,
-  Y        = Y_new,
-  A        = A_new,
-  ab       = ab)
+  test     = df_test, levels = levels_A,
+  Y        = Y_new,A = A_new,ab = ab) 
 
-# Pre-build prediction grid for all treatment actions (m levels)
 pred_grid_well <- map(seq_len(m), function(val) {
-  d <- df_test[, c(covariates_name, treatment_name)]
-  d[[treatment_name]] <- factor(val, levels = levels_A)
-  d
-})
+   d <- df_test[, c(covariates_name, treatment_name)]
+   d[[treatment_name]] <- factor(val, levels = levels_A)
+   d })
 
 pred_grid_miss <- map(seq_len(m), function(val) {
   d <- df_test[, c("X2", "X3", "X4", "X5", treatment_name)]
@@ -118,14 +114,14 @@ pred_grid_miss <- map(seq_len(m), function(val) {
   d
 })
 
-SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
-
-
 predict_potential_outcomes <- function(model, grid) {
   sapply(grid, function(newdata) {
     SuperLearner::predict.SuperLearner(model, newdata = newdata)$pred
   })
 }
+
+# SL library 
+SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
 
 # ── 1. BOOTSTRAP LOOP ─────────────────────────────────────────────────────────
 results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
@@ -137,14 +133,15 @@ results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
   
   set.seed(seed + bootstrap_idx)
   
-  
   # ── Train outcome models (Q) ────────────────────────────────────────────────
-  QAW.reg.train <- SuperLearner::SuperLearner(
-    Y = train_b[, outcome_name],
-    X = train_b[, c(covariates_name, treatment_name)],
-    SL.library = SL.library_cond, family = "gaussian"
-  )
-  potential_outcomes_new <- predict_potential_outcomes(QAW.reg.train, pred_grid_well)
+  
+    QAW.reg.train <- SuperLearner::SuperLearner(
+       Y = train_b[, outcome_name],
+       X = train_b[, c(covariates_name, treatment_name)],
+       SL.library = SL.library_cond, family = "gaussian")
+   potential_outcomes_new <- predict_potential_outcomes(QAW.reg.train, pred_grid_well)
+   
+  #potential_outcomes_new <- potential_outcomes
   
   QAW.reg.train_misspecified <- SuperLearner::SuperLearner(
     Y = train_b[, outcome_name], 
@@ -155,11 +152,10 @@ results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
   
   # ── Train propensity score models (g) ───────────────────────────────────────
   gAX.train <- grf::probability_forest(
-    X = train_b[, covariates_name], 
-    Y = as.factor(train_b[, treatment_name])
-  )
-  gAX.pred <- stats::predict(gAX.train, 
-                             newdata = df_test[, covariates_name])$predictions
+       X = train_b[, covariates_name], 
+       Y = as.factor(train_b[, treatment_name]))
+  gAX.pred <- stats::predict(gAX.train, newdata = df_test[, covariates_name])$predictions
+  # gAX.pred <- prop_score_new
   
   gAX.train_misspecified <- grf::probability_forest(
     X = train_b[, c("X2", "X3", "X4", "X5")], 
@@ -174,6 +170,8 @@ results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
                      g = gAX.pred),
     Q_miss    = list(Q = potential_outcomes_new_misspecified, 
                      g = gAX.pred),
+    g_miss    = list(Q = potential_outcomes_new, 
+                     g = gAX.pred_misspecified),
     both_miss = list(Q = potential_outcomes_new_misspecified, 
                      g = gAX.pred_misspecified))
   
@@ -188,6 +186,10 @@ results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
                      Q = models$Q_miss$Q,  g = models$Q_miss$g),
     TMLE_QAX  = list(fn = set_policy_value_tmle,    
                      Q = models$Q_miss$Q,  g = models$Q_miss$g),
+    AIPW_gAX  = list(fn = set_policy_value_aipw,    
+                     Q = models$g_miss$Q,  g = models$g_miss$g),
+    TMLE_gAX  = list(fn = set_policy_value_tmle,    
+                     Q = models$g_miss$Q,  g = models$g_miss$g),
     AIPW_both = list(fn = set_policy_value_aipw,    
                      Q = models$both_miss$Q, g = models$both_miss$g),
     TMLE_both = list(fn = set_policy_value_tmle,    
@@ -203,8 +205,11 @@ results_list <- mclapply(seq_len(n_bootstrap), function(bootstrap_idx) {
       df1 = data.frame(estimator = name, value = as.numeric(res[[1]]), stringsAsFactors = FALSE),
       df2 = data.frame(estimator = name, value = as.numeric(res[[2]]), stringsAsFactors = FALSE)
     )
-  })}, mc.cores = 4)
+  })
+  
+  }, mc.cores = 4)
 
+# ── Plot SPVs ─────────────────────────────────────────────────────────────────
 df_unif <- map_dfr(results_list, function(b_iter) {
   map_dfr(b_iter, ~ .x[["df1"]])
 }) |> mutate(SPV = "Uniform SPV")
@@ -214,7 +219,10 @@ df_prop <- map_dfr(results_list, function(b_iter) {
 }) |> mutate(SPV = "Propensity SPV")
 
 df_all <- bind_rows(df_unif , df_prop)
-  
+
+saveRDS(df_all, 
+        file =  paste0("inst/toy_examples/images_", type,"/dr.rds"))  
+
 hline_data <- data.frame(
   SPV          = c("Uniform SPV", "Propensity SPV"),
   target_value = c(oracular_SPV[[1]], oracular_SPV[[2]])
@@ -228,12 +236,14 @@ p <- df_all |>
         "plug_in",
         "AIPW", "TMLE",
         "AIPW_QAX", "TMLE_QAX",
+        "AIPW_gAX", "TMLE_gAX",
         "AIPW_both", "TMLE_both"
       ),
       labels = c(
         "Plug-in",
         "AIPW", "TMLE",
         "AIPW (Q-model mis-specified)", "TMLE (Q-model mis-specified)",
+        "AIPW (g-model mis-specified)", "TMLE (g-model mis-specified)",
         "AIPW (Both mis-specified)", "TMLE (Both mis-specified)"
       )
     )
@@ -247,6 +257,7 @@ p <- df_all |>
     color = "black",
     linewidth = 0.8
   ) +
+  #ylim(c(2,3))+
   facet_grid(~ SPV) +
   theme_minimal(base_size = 12) +
   theme(
@@ -256,5 +267,5 @@ p <- df_all |>
   labs(x = "Estimator", y = "Value")
 
 ggsave(p, 
-       filename =  paste0("inst/toy_examples/images_", type,"/estimators.pdf"), 
+       filename =  paste0("inst/toy_examples/images_", type,"/DR_estimators.pdf"), 
        width = 12, height = 5)

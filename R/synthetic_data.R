@@ -97,7 +97,7 @@ mu_P_tree <- function(X){
 #' n <- 1e3 
 #' generate_data(n, type="simple")
 #' @export
-generate_data <- function(n, seed=NA, is_RCT= TRUE, type = "simple"){
+generate_data <- function(n, seed=NA, is_RCT= TRUE, type = c("linear", "complex", "tree")){
   type <- match.arg(type)
   if(!is.na(seed)){
     set.seed(seed)
@@ -108,7 +108,7 @@ generate_data <- function(n, seed=NA, is_RCT= TRUE, type = "simple"){
   if(is_RCT){
     A <- t(stats::rmultinom(n, 1, rep(1/treatment_levels, treatment_levels)))
   }else{
-    if(type=="normal"){
+    if(type=="linear"){
       w <- stats::plogis(X[,1] + X[,2] - 0.5)
       beta_low_vec  <- c(8,8,5,7)  # 1,2 high
       beta_high_vec <- c(4,4,8,7)  # 3 low 

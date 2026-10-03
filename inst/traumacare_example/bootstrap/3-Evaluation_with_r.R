@@ -4,9 +4,7 @@ cat("evaluating for varying r...")
 
 # General parameters ───────────────────────────────────────────────────────────
 n_methods <- length(SL.out$perturbed_noisy_labels)+2
-
 z <- stats::qnorm(1 - alpha/2)
-
 
 spv <- array(0, dim=c(n_methods, 2, 3,  n_rate)) 
 mean_cardinality<- array(0, dim=c(n_methods, n_rate))  

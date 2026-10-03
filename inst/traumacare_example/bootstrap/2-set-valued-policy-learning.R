@@ -61,13 +61,7 @@ SL.out$folds <- SuperLearner::CVFolds(n, id = NULL, Y = Y,
 # train the set-valued policy learning methods
 train <- SL.out$df_obs[SL.out$folds[[1]],] 
 n_train <- nrow(train)
-# alpha selection
-pseudo.test.predict <-  SL.out$df_obs[SL.out$folds[[2]],]  # pseudo.test
-#SL.out$folds_pseudo <- SuperLearner::CVFolds(nrow(pseudo.test), id = NULL,Y = Y[SL.out$folds[[2]]],
-#                                      cvControl = SuperLearner::SuperLearner.CV.control(V = 2L))
-#pseudo.test.predict <- pseudo.test[SL.out$folds_pseudo[[1]],]    
-#pseudo.test.nuisance <- pseudo.test[SL.out$folds_pseudo[[2]],] 
-# alpha evaluation
+pseudo.test.predict <-  SL.out$df_obs[SL.out$folds[[2]],] # r selection
 evaluation <-  SL.out$df_obs[SL.out$folds[[3]],] 
 
 # Set-valued policy learning ───────────────────────────────────────────────────

@@ -120,12 +120,12 @@ set_policy_value_plug_in <- function(test_set, test, Q.all.actions,
   Ind[rowSums(Ind)==0,] <- 1
   
   q_unif <- Ind /rowSums(Ind)
-  results <- rowSums(Q.all.actions * q_unif) %>% mean()
+  results <- rowSums(Q.all.actions * q_unif) |> mean()
 
   g_c <- rowSums(Ind * gAX.pred)
   q_p <- Ind * gAX.pred / g_c
   
-  results_non_random <- rowSums(Q.all.actions * q_p) %>% mean()
+  results_non_random <- rowSums(Q.all.actions * q_p) |> mean()
   
   return(list(results,results_non_random))
 
@@ -142,45 +142,43 @@ set_policy_value_plug_in <- function(test_set, test, Q.all.actions,
 #' @param Y A vector containing the outcome variable. 
 #' @param A A vector containing the treatment variable.
 #' @param ab A vector containing the minimal and maximal value for Y.
-#' @param levels Vector of possible treatment/action levels. Defaults to `1:4`.
 #' @param zero_indexed A logical indicator for binary treatments. 
-#' @param eps.g A numeric scalar that sets the minimum allowed value for propensity 
-#' score upper and lower bound estimations. Defaults to sqrt(.Machine$double.eps).
-#' @param eps.Q A numeric scalar that sets the minimum allowed value for conditional 
-#' mean upper and lower bound estimations. Defaults to 1e-3.
 #'
 #' @return A list with two numeric values representing the estimated uniform
 #'  set-policy value and propensity set-policy value.
 #' @export
 set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab, 
-                                  levels = 1:4, zero_indexed = FALSE, eps.g = 1e-3, 
-                                  eps.Q = sqrt(.Machine$double.eps)) {
+                                  levels= 1:4, zero_indexed = FALSE) {
+  
   n <- length(Y) 
-  m <- length(levels) 
+  m <- ncol(Q.all.actions)
   row_idx <- seq_len(n)
   A_col <- as.integer(setNames(seq_along(levels), levels)[as.character(A)])
+  
+  Y01 = (Y - min(ab))/diff(ab)
+  Qd01 = ((Q.all.actions - min(ab))/diff(ab)) |> as.matrix()
+  Qd01[Qd01 > 0.999] <- 0.999
+  Qd01[Qd01 < 0.001] <- 0.001
+
+  logit.Qd01 = stats::qlogis(Qd01)
   
   conf <- if (is.list(test_set)) test_set else as.list(test_set)
   if (zero_indexed) conf <- lapply(conf, function(s) s + 1L)   # -> 1-indexed
   
-  rng <- ab[2] - ab[1]
-  Y01 <- (Y - ab[1]) / rng
-  Q01 <- pmin(pmax((as.matrix(Q.all.actions) - ab[1]) / rng, eps.Q), 1 - eps.Q)
-  
-  g <- pmax(as.matrix(gAX.pred), eps.g)
-  g <- g / rowSums(g)
-  
-  Q_obs <- Q01[cbind(row_idx, A_col)]
+  g <- gAX.pred
+  #g <- pmax(gAX.pred, eps.g)
+  #g <- g / rowSums(g)
 
   # generic targeting step: q_mat = target weights, H_mat = clever covariates (n x m)
   tmle <- function(q_mat, H_mat) {
     H_obs <- H_mat[cbind(row_idx, A_col)]
-    fit <- stats::glm(Y01 ~ -1 + H_obs, 
-                      family = stats::binomial(), 
-                      offset = qlogis(Q_obs))
-    e <- fit$coefficients["H_obs"] #unname(stats::coef(fit)[1]); if (is.na(e)) e <- 0
-    Q_star <- stats::plogis(qlogis(Q01) + e * H_mat)
-    ab[1] + rng * mean(rowSums(q_mat * Q_star))
+    logit_Q_obs <- logit.Qd01[cbind(row_idx, A_col)]
+    update <- stats::glm(
+      Y01 ~ -1 + H_obs + offset(logit_Q_obs), family = "quasibinomial")
+    e <- update$coefficients
+    Qd01_star = stats::plogis(logit.Qd01 + e * H_mat)
+    Qd_stars  = Qd01_star * diff(ab) + min(ab)
+    rowSums(Qd_stars * q_mat) |> mean()
   }
   
   # uniform SPV
@@ -189,10 +187,11 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
   Ind[rowSums(Ind)==0,] <- 1
   
   q_unif <- Ind /rowSums(Ind)
-  res_unif <- tmle(q_unif, (q_unif / g))
+  res_unif <- tmle(q_unif, q_unif / g)
   
   # propensity SPV
   g_c <- rowSums(Ind * g)
+  g_c <- pmax(g_c, 1e-4)
   q_p <- Ind * g / g_c
   res_prop <- tmle(q_p, Ind / g_c)
   
@@ -398,7 +397,6 @@ margin_score <- function(potential_outcomes) {
 #' @param potential_outcomes A data frame containing the true potential outcomes.
 #' @param df_new_sample Data frame used for prediction.
 #' @param levels_A Vector of possible treatment/action levels. Defaults to `1:5`.
-#' @param covariates_name Character vector of covariate names. Defaults to `c("x1", "x2")`.
 #' @param treatment_name String indicating the treatment variable. Defaults to "A".
 #' @param outcome_name String indicating the outcome variable. Defaults to "Y".
 #'
@@ -410,18 +408,17 @@ margin_score <- function(potential_outcomes) {
 #' margin_score(matrix(runif(10 * 5), 10, 5))
 table.evaluation <- function(test_set, optimal_policy_new,
                              prop_score_new, potential_outcomes, 
-                             df_new_sample, levels_A, 
-                             covariates_name, treatment_name = "A", 
-                             outcome_name = "Y"){
+                             df_new_sample, levels_A,
+                             treatment_name = "A", outcome_name = "Y"){
   exact.matches <- sapply(1:length(test_set), function(i) {
-    setequal(test_set[[i]], optimal_policy_new[[i]])%>% 
+    setequal(test_set[[i]], optimal_policy_new[[i]])|> 
       as.numeric()
   })
   
   cardinality.mean <- sapply(1:length(test_set), function(i) {
-    length(test_set[[i]])%>% 
+    length(test_set[[i]])|> 
       as.numeric()
-  }) %>% mean()
+  }) |> mean()
   
   cov <- sapply(1:length(test_set), function(i) {
     coverage_strict_single(pred_set = test_set[[i]], true_set = optimal_policy_new[[i]])})
@@ -439,3 +436,49 @@ table.evaluation <- function(test_set, optimal_policy_new,
   return(list(exact.matches, cardinality.mean, cov, cov.relaxed, spv.unif, spv.propensity))
 }
 
+#' Complete evaluation of a set-valued policy using real data.
+#'
+#'
+#'
+#' @param test_set A `list` of numeric or character vectors representing the 
+#' predicted sets.
+#' @param prop_score_new A data frame containing the true propensity scores.
+#' @param potential_outcomes A data frame containing the true potential outcomes.
+#' @param df_new_sample Data frame used for prediction.
+#' @param levels_A Vector of possible treatment/action levels. Defaults to `1:5`.
+#' @param ab A vector containing the minimal and maximal value for Y.
+#' @param zero_indexed A logical indicator for binary treatments. 
+#' @param treatment_name String indicating the treatment variable. Defaults to "A".
+#' @param outcome_name String indicating the outcome variable. Defaults to "Y".
+#'
+#' @return A list containing different evaluation metrics: exact match, 
+#' strict and relaxed coverage, and set-policy values (uniform and propensity). 
+#' @export
+table.evaluation.real <- function(test_set,
+                             prop_score_new, potential_outcomes, 
+                             df_new_sample, levels_A, ab, zero_indexed=FALSE,
+                             treatment_name = "A", outcome_name = "Y"){
+  
+  cardinality.mean <- sapply(1:length(test_set), function(i) {
+    length(test_set[[i]])|> 
+      as.numeric()}) |> mean()
+  
+  spv.aipw <- set_policy_value_aipw(test_set = test_set, 
+                                    Y = df_new_sample[,outcome_name], 
+                                    A = df_new_sample[,treatment_name],
+                                    Q.all.actions = potential_outcomes, 
+                                    gAX.pred = prop_score_new,
+                                    levels = levels_A, zero_indexed = zero_indexed)
+  spv.unif.aipw <- spv.aipw[[1]]
+  spv.propensity.aipw <- spv.aipw[[2]]
+  
+  spv.tmle <- set_policy_value_tmle(test_set = test_set, 
+                                    Y = df_new_sample[,outcome_name], 
+                                    A = df_new_sample[,treatment_name],
+                                    Q.all.actions = potential_outcomes, 
+                                    gAX.pred = prop_score_new, ab = ab,
+                                    levels = levels_A, zero_indexed = zero_indexed)
+  spv.unif.tmle <- spv.tmle[[1]]
+  spv.propensity.tmle <- spv.tmle[[2]]
+  return(list(cardinality.mean, spv.unif.aipw, spv.propensity.aipw, spv.unif.tmle,spv.propensity.tmle))
+}

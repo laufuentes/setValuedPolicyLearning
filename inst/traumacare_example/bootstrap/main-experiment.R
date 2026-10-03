@@ -1,82 +1,65 @@
-# ── Set working directory  ──────────────────────────────────────────────────
-root.path <- "~/Documents/PhD/Project 2 - Conformal Policy Sets /setValuedPolicyLearning"
+root.path <- "~/Documents/PhD/Project 2 - Conformal Policy Sets /setValuedPolicyLearning/"
 setwd(root.path)
+seed <- 2026
+set.seed(seed)
 
-# ── Required packages  ────────────────────────────────────────────────────────
-source("inst/libraries.R")
+names <- readRDS("inst/traumacare_example/intermediate/preprocessing.rds")
+
 
 # ── Load functions from R folder  ────────────────────────────────────────────
-source("inst/toy_examples/synthetic_data.R")
+source("inst/libraries.R")
 source("R/utils.R")
 source("R/evaluation.R")
+
+
 source("inst/toy_examples/train_policies.R")
 
 # ── General parameters  ───────────────────────────────────────────────────────
-seed <- 2026
-set.seed(seed)
-VFolds <- 4 # folds to split data
-
-n <- 10000
-type <- "tree"
-#random_rates <- seq(0,1,0.1)
+random_rate <- c(0, 0.1, 0.25, 0.5)
+n_rate <- length(random_rate)
 alpha <- 0.1
 z <- qnorm(1 - alpha/2)
 n_bootstrap <- 30
 
-# ── Simulations for varying sample sizes  ─────────────────────────────────────
-SL.out<- list() # list where results will be saved
+# ── Load data  ──────────────────────────────────────────────
+### Train samples
+train_imp_onehot <- read.csv("inst/traumacare_example/intermediate/train_imp_one_hot.csv")
+df_obs <- train_imp_onehot # use train_imp (if want to use no-one-hot encoded version)
+n<- nrow(df_obs)  # number of observations. 
 
-# ── Synthetic data generation  ──────────────────────────────────────────────
-## Training observations
-exp <- generate_data(n, is_RCT = FALSE, seed = seed, type = type)
-# extract observational data
-SL.out$df_obs <- exp[[1]]
-# extract complete data
-df_complete <- exp[[2]]
-summary(df_complete)
-
-# extract optimal policy
-SL.out$optimal_policy <- exp[[3]]
-# extract potential outcomes
-SL.out$potential_outcomes <- df_complete %>%
-  select(starts_with("Potential_outcomes."))
-
-### Test observations
-exp_new_sample <- generate_data(n/2, is_RCT = FALSE, seed = seed+1, type = type)
-# extract observational data
-SL.out$df_new_sample <- exp_new_sample[[1]]
-# extract optimal policy
-SL.out$optimal_policy_new <- exp_new_sample[[3]]
-# extract potential outcomes
-SL.out$potential_outcomes <- exp_new_sample[[2]] %>%
-  select(starts_with("Potential_outcomes."))
-SL.out$prop_score_new <- exp_new_sample[[4]] 
+### Test samples (for final predictions)
+test_imp_onehot <- read.csv("inst/traumacare_example/intermediate/test_imp_one_hot.csv")
+df_new_sample <- test_imp_onehot # use test_imp (if want to use no-one-hot encoded version)
 
 # ── Define data parameters  ─────────────────────────────────────────────────
-covariates_name <- c("X1","X2", "X3", "X4", "X5")
-X <- SL.out$df_obs[,covariates_name] %>% as.matrix()
-X_new <- SL.out$df_new_sample[,covariates_name] %>% as.matrix()
+# Baseline covariates
+covariates_name <- names$covariates_name # use covariate_name (if want to use no-one-hot encoded version ) 
+X <- df_obs[, covariates_name] %>% 
+  as.matrix() %>% 
+  apply(2, as.numeric) # Covariates for training data 
 
-treatment_name <- "A" # name of treatment indicator in dataset
-A <- SL.out$df_obs[,treatment_name]
-A_new <- SL.out$df_new_sample[,treatment_name]
+X_new <- df_new_sample[,covariates_name] %>% 
+  as.matrix() %>% 
+  apply(2, as.numeric) # Covariates for test data 
 
+# Treatment
+treatment_name <- names$treatment_name
+A <- df_obs[,treatment_name] # Treatment vector for training data 
+A_new <- df_new_sample[,treatment_name] # Treatment for test data
 levels_A <- levels(A) # treatment levels
 m <- length(levels(A)) # number of treatment levels
 
-outcome_name <- "Y" # name of outcome in dataset
-Y <- SL.out$df_obs[,outcome_name]
-Y_new <- SL.out$df_new_sample[,outcome_name]
-
+# Outcome
+outcome_name <- names$outcome_name
+Y <- df_obs[,outcome_name] 
+Y_new <- df_new_sample[,outcome_name]
 ab <- c(min(c(Y,Y_new)),max(c(Y,Y_new)))
 
 set.seed(seed)
 bootstrap_indices <- lapply(1:n_bootstrap, function(i) {
   sample(1:n, size = as.integer(n*0.75), replace = TRUE)})
 
-source("inst/toy_examples/set-valued-policy-training.R")
-saveRDS(results_list, file = "inst/toy_examples/images/results_list.rds")
-saveRDS(SL.out, file = "inst/toy_examples/images/SL.out.rds")
+source("inst/traumacare_example/bootstrap/set-valued-policy-training.R")
+saveRDS(results_list, file = "inst/traumacare_example/images/results_list.rds")
 
-
-source("inst/toy_examples/figures.R")
+#source("inst/traumacare_example/bootstrap/figures.R")

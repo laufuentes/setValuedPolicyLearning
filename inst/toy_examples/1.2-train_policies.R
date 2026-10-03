@@ -3,31 +3,27 @@ train_policies <- function(train_b, train1, calibration, seed) {
   
   message("training experts (conformal prediction)...\n")
   
-  # 1. Helper function to calculate potential outcomes in ONE predict call
   get_best_action <- function(model, base_df, m_levels, covariates, treatment, pred_fun = stats::predict) {
     n <- nrow(base_df)
-    # Expand data once across all treatment levels
     expanded_df <- base_df[rep(seq_len(n), times = length(m_levels)), c(covariates, treatment), drop = FALSE]
     expanded_df[[treatment]] <- factor(rep(m_levels, each = n), levels = levels_A)
-    
-    # Single prediction call
     preds <- pred_fun(model, expanded_df)
     if (is.list(preds) && "pred" %in% names(preds)) preds <- preds$pred
     if (is.list(preds) && "predictions" %in% names(preds)) preds <- preds$predictions
-    
-    # Reshape to matrix (n x m) and pick max column fast using max.col
     pred_mat <- matrix(preds, nrow = n, ncol = length(m_levels))
     max.col(pred_mat, ties.method = "first")
   }
   
-  # Extract base datasets
-  X_b <- train_b[, covariates_name, drop = FALSE]
-  A_b <- train_b[, treatment_name]
-  Y_b <- train_b[, outcome_name]
-  
+  # Extract datasets
+  # For conformal procedure (subset of complete boostrap sample)
   X_train <- train1[, covariates_name, drop = FALSE]
   A_train <- train1[, treatment_name]   
   Y_train <- train1[, outcome_name]   
+  
+  # For standard policy learning & GLB (complete boostrap sample)
+  X_b <- train_b[, covariates_name, drop = FALSE]
+  A_b <- train_b[, treatment_name]
+  Y_b <- train_b[, outcome_name]
   
   m_levels <- 1:m
   df_new <- SL.out$df_new_sample
@@ -61,7 +57,7 @@ train_policies <- function(train_b, train1, calibration, seed) {
   
   pred_calibration[["ql.reg.forest"]] <- get_best_action(ql.reg.forest, calibration, m_levels, covariates_name, treatment_name, pred_fun = rf_pred)
 
-  ## ── 3. MACF ─────────────────────────────────────────────────────────────────
+  ## ── 3. MACF ────────────────────────────────────────────────────────────────
   forest <- grf::multi_arm_causal_forest(
     X = X_train, Y = Y_train, W = as.factor(A_train)
   )
@@ -122,8 +118,8 @@ train_policies <- function(train_b, train1, calibration, seed) {
   SL.out$libraryNames <- names(pred_calibration)
   doptFactorPredict_cal <- do.call(cbind, pred_calibration)
 
-  ## ── 7. Naive method & GLB ──────────────────────────────────────────────────
-  message("training experts (naive version & GLB)...\n")
+  ## ── 7. Standard policy learning & GLB ──────────────────────────────────────
+  message("training experts (baseline policies & GLB)...\n")
   
   pred_new_data_naive <- list()
   
@@ -179,7 +175,7 @@ train_policies <- function(train_b, train1, calibration, seed) {
                      prop_score_new = SL.out$prop_score_new, 
                      potential_outcomes = SL.out$potential_outcomes, 
                      df_new_sample = SL.out$df_new_sample,
-                     levels_A = levels_A, covariates_name, 
+                     levels_A = levels_A,
                      treatment_name = treatment_name, 
                      outcome_name = outcome_name)})
   
@@ -201,7 +197,7 @@ train_policies <- function(train_b, train1, calibration, seed) {
                                          prop_score_new = SL.out$prop_score_new, 
                                          potential_outcomes = SL.out$potential_outcomes, 
                                          df_new_sample = SL.out$df_new_sample,
-                                         levels_A = levels_A, covariates_name, 
+                                         levels_A = levels_A, 
                                          treatment_name = treatment_name, 
                                          outcome_name = outcome_name)
   

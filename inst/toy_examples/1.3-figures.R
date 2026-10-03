@@ -2,7 +2,7 @@ add_r <- TRUE
 idx_r <- 1:2
 r_value <- ifelse(type == "tree", 0.15, 0.1)
 
-# ── Generate the rownames  ─────────────────────────────────────────────────────────
+# ── Generate the rownames for latex table ─────────────────────────────────────
 types_optimal_treatment <- SL.out$optimal_policy_new |> unique()
 obs_types <- sapply(SL.out$optimal_policy_new, function(x) {
   which(sapply(types_optimal_treatment, function(y) setequal(x, y)))
@@ -17,8 +17,8 @@ cov.treatment_labels <- sapply(types_optimal_treatment, function(x) {
 obs_type_names <- treatment_labels[obs_types]
 obs_cov_names <- cov.treatment_labels[obs_types]
 
-# Extract results from results_list
-### exact match and coverage
+# ── Extract results from results_list ─────────────────────────────────────────
+### Exact match and coverage
 exact_match_all <-  coverage_all <- array(0, dim = c(nrow(results_list[[1]]$exact_match), 
                                     ncol(results_list[[1]]$exact_match), 
                                     length(results_list)))
@@ -42,16 +42,16 @@ df_strict_coverage <- data.frame(
   group_by(Set_Type) |>
   summarise(across(starts_with("X"), ~ mean(.x, na.rm = TRUE)))
 
-### other features
+### Other features (cardinality, SPVs, marginal and total strict coverage)
 cardinality_all <- do.call(rbind, 
                            lapply(results_list, `[[`, "cardinality"))
 mean_card    <- colMeans(cardinality_all)
 strict_cov   <- colMeans(coverage_mean)
 relaxed_cov  <- colMeans(do.call(rbind, 
                                  lapply(results_list, 
-                                        `[[`, "relaxed_coverage")))
+                                        `[[`, "relaxed_coverage"))) # marginal coverage
 spv_unif_all <- do.call(rbind, 
-                        lapply(results_list, `[[`, "spv_uniform"))
+                        lapply(results_list, `[[`, "spv_uniform")) 
 spv_unif     <- colMeans(spv_unif_all)
 
 spv_prop_all <- do.call(rbind, 
@@ -59,44 +59,39 @@ spv_prop_all <- do.call(rbind,
                                `[[`, "spv_propensity"))
 spv_prop     <- colMeans(spv_prop_all)
 
-# names of the methods 
+### Names of baseline policies and conformal set-valued policies
 methods_pl <- results_list[[1]]$selected_methods
-clean_methods <- grep(paste0("\\(r=0\\.",ifelse(type==tree,15,1),"\\)$"), methods_pl, value = TRUE, invert = TRUE)
+clean_methods <- grep(paste0("\\(r=0\\.",ifelse(type=="tree",15,1),"\\)$"), methods_pl, value = TRUE, invert = TRUE)
 
+# Ordered names
 dynamic_methods <- unlist(lapply(clean_methods, function(m) {
   if (add_r && m %in% clean_methods[idx_r]) {
     c(m, paste0("Conformal ", m), paste0("Conformal ", m, " (r=",r_value,")"))
   } else {
     c(m, paste0("Conformal ", m))
-  }}))
-
+  }})) 
 order_elements <- c("Set Type", "GLB GRF", "GLB GLM", dynamic_methods, 
                     "Policy Aggregation", "Conformal Aggregation")
 
-# Create latex table
+# ── Create latex table ────────────────────────────────────────────────────────
+# Group results
 df_summary <- rbind(
-  df_exact_match,
-  c("Mean cardinality", mean_card),
-  df_strict_coverage,
-  c("Total strict coverage", strict_cov),
-  c("Total relaxed coverage", relaxed_cov),
-  c("Uniform SPV", spv_unif),
-  c("Propensity SPV", spv_prop))
+  df_exact_match, c("Mean cardinality", mean_card),
+  df_strict_coverage, c("Total strict coverage", strict_cov),
+  c("Marginal coverage", relaxed_cov),
+  c("Uniform SPV", spv_unif), c("Propensity SPV", spv_prop))
 
 colnames(df_summary)<- c(
   "Set Type", "GLB GRF", "GLB GLM", 
   "Policy Aggregation", "Conformal Aggregation", 
   clean_methods, 
-  paste0("Conformal ", methods_pl)
-)
+  paste0("Conformal ", methods_pl))
 
 df_summary <- df_summary |>
   select(all_of(order_elements)) |>
   mutate(across(-`Set Type`, ~ round(as.numeric(.x), 2)))
 
-# 3. Dynamic LaTeX Generation with kableExtra 
-
-# Construct sub-headers vector dynamically
+# Construct sub-headers vector
 dynamic_cols <- lapply(clean_methods, function(x) {
   if (add_r && x %in% clean_methods[idx_r]) {
     c("Policy", "Conf.", paste0("Conf.$_{r=", r_value, "}$"))
@@ -105,7 +100,8 @@ dynamic_cols <- lapply(clean_methods, function(x) {
   }}) |> unlist()
 
 sub_headers <- c("\\textbf{Set Type}", "GRF", "GLM", dynamic_cols, "Policy", "Conf.")
-# Construct group headers structure dynamically
+
+# Construct group headers structure 
 header_groups <- c(
   " " = 1,
   "\\\\textbf{GLB}" = 2,
@@ -116,7 +112,6 @@ header_groups <- c(
   "\\\\textbf{Aggregation}" = 2
 )
 
-# Render LaTeX table string
 latex_tbl <- kable(
   df_summary,
   format = "latex",
@@ -139,16 +134,18 @@ writeLines(
     as.character(latex_tbl),
     "\\end{table}"
   ),
-  con = "inst/toy_examples/images/results.txt"
+  con = file.path(subdir_path,"results.txt")
 )
 
+
 if(type =="linear"){
+  # ── Create latex table for reduced linear scenario ──────────────────────────
   target_methods <- c("MACF", "ql.lm")
   sub_clean_methods <- intersect(clean_methods, target_methods)
   
   normal_dynamic_methods <- unlist(lapply(sub_clean_methods, function(m) {
     if (add_r && m %in% clean_methods[idx_r]) {
-      c(m, paste0("Conformal ", m), paste0("Conformal ", m, paste0("(r=",r_value,")")))
+      c(m, paste0("Conformal ", m), paste0("Conformal ", m, paste0(" (r=",r_value,")")))
     } else {
       c(m, paste0("Conformal ", m))
     }
@@ -156,22 +153,21 @@ if(type =="linear"){
   
   target_cols <- c("Set Type", "GLB GRF", "GLB GLM", normal_dynamic_methods)
   
-  # Subset rows (drop SPV rows) & subset columns
+  # Subset rows and columns
   df_summary_reduced <- df_summary %>%
     filter(!`Set Type` %in% c("Uniform SPV", "Propensity SPV")) %>%
     select(all_of(target_cols))
   
+  # Construct sub-headers vector
   dynamic_cols_reduced <- lapply(sub_clean_methods, function(x) {
     if (add_r && x %in% clean_methods[idx_r]) {
-      c("Policy", "Conf.", paste0("Conf.$_{r=", r_value, "}$"))
+      c("Policy", "Conf.", paste0(" Conf.$_{r=", r_value, "}$"))
     } else {
-      c("Policy", "Conf.")
-    }
-  }) | unlist()
-  
+      c("Policy", "Conf.")}
+    }) |> unlist()
   sub_headers_reduced <- c("\\textbf{Set Type}", "GRF", "GLM", dynamic_cols_reduced)
   
-  # Rebuild group headers for reduced columns
+  # Construct group headers structure 
   header_groups_reduced <- c(
     " " = 1,
     "\\textbf{GLB}" = 2,
@@ -190,8 +186,7 @@ if(type =="linear"){
     escape = FALSE,
     col.names = sub_headers_reduced,
     align = c("l", rep("c", ncol(df_summary_reduced) - 1)),
-    label = "tab:exact_matches_mean"
-  ) %>%
+    label = "tab:exact_matches_mean") %>%
     add_header_above(header_groups_reduced, escape = FALSE) %>%
     kable_styling(latex_options = c("HOLD_position"), font_size = 9)
   
@@ -205,17 +200,18 @@ if(type =="linear"){
       as.character(latex_tbl_reduced),
       "\\end{table}"
     ),
-    con = "inst/toy_examples/images/results_reduced.txt"
+    con = file.path(subdir_path,"results_reduced.txt")
   )
 }
 
-# ── Create SPV boxplot ────────────────────────────────────────────────────────
+# ── Create SPV boxplot figure  ────────────────────────────────────────────────
 colnames(spv_prop_all) <- colnames(spv_unif_all) <- colnames(cardinality_all) <- 
   c("GLB GRF", "GLB GLM", 
     "Policy Aggregation", "Conformal Aggregation", 
     clean_methods, 
     paste0("Conformal ", methods_pl))
 
+# Uniform SPVs
 df_spv.unif <- spv_unif_all |> 
   as.data.frame()|>
   select(-all_of(c(clean_methods, "Policy Aggregation"))) |>
@@ -224,7 +220,7 @@ df_spv.unif <- spv_unif_all |>
                values_to = "SPV Value") |> 
   mutate(Metric = "Uniform SPV")
 
-
+# Policy values 
 df_pv <- spv_prop_all |> 
   as.data.frame() |>
   select(all_of(c(clean_methods, "Policy Aggregation"))) |>
@@ -233,6 +229,7 @@ df_pv <- spv_prop_all |>
                values_to = "SPV Value") |> 
   mutate(Metric = "Policy value")
 
+# Propensity SPVs
 df_spv.prop <- spv_prop_all |> 
   as.data.frame() |>
   select(-all_of(c(clean_methods, "Policy Aggregation"))) |>
@@ -241,18 +238,17 @@ df_spv.prop <- spv_prop_all |>
                values_to = "SPV Value") |> 
   mutate(Metric = "Propensity SPV")
 
-
+# Horizontal lines
 potential.outcomes <- SL.out$potential_outcomes
 opt.treatment <- do.call(rbind, SL.out$optimal_policy_new)
 opt.value <- SL.out$potential_outcomes[cbind(1:nrow(potential.outcomes), 
                                              opt.treatment[,1])] %>% mean()
-
 levels_A <- levels(SL.out$df_new_sample$A)
 m <- length(levels_A)
-
 A_rd <- sample(as.numeric(levels_A), size = nrow(SL.out$df_new_sample), replace = TRUE)
 random.value <- SL.out$potential_outcomes[cbind(1:nrow(potential.outcomes), A_rd)] %>% mean()
 
+# Create figure
 spv_boxplot <- bind_rows(df_spv.unif, df_spv.prop, df_pv) |> 
   dplyr::mutate(Method = factor(`Method`, levels = order_elements)) |> 
   ggplot2::ggplot(
@@ -270,6 +266,7 @@ spv_boxplot <- bind_rows(df_spv.unif, df_spv.prop, df_pv) |>
 ggplot2::ggsave(spv_boxplot, filename = file.path(subdir_path,"SPV_boxplot.pdf"), width = 18, height = 6)
 
 if(type=="linear"){
+  # Reduced figure for linear scenario
   spv_boxplot <- bind_rows(df_spv.unif, df_spv.prop, df_pv) |> 
     filter(!grepl("drql.lm|aggregation|drql.ksvm", Method, ignore.case = TRUE))|>
     dplyr::mutate(Method = factor(`Method`, levels = order_elements)) |> 
@@ -281,15 +278,13 @@ if(type=="linear"){
     ggplot2::geom_boxplot(na.rm = TRUE)+
     ggplot2::geom_hline(ggplot2::aes(yintercept = opt.value), colour = "black")+
     ggplot2::geom_hline(ggplot2::aes(yintercept = random.value), colour = "red")+ 
-    ggplot2::theme(
-      #axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
-    )
+    ggplot2::theme()
   
   ggplot2::ggsave(spv_boxplot, 
                   filename = file.path(subdir_path,"SPV_boxplot_reduced.pdf"), width = 12, height = 6)
   
 }
-# ── Create cardinality boxplot ────────────────────────────────────────────────
+# ── Create cardinality boxplot figure ─────────────────────────────────────────
 cardinality_boxplot <- cardinality_all |> 
   as.data.frame() |>
   pivot_longer(cols = everything(), 
@@ -303,13 +298,15 @@ ggplot2::ggsave(cardinality_boxplot,
                 filename = file.path(subdir_path,"Cardinality_boxplot.pdf"), 
                 width = 18, height = 6)
 
-# ── Create naive policy values boxplot ────────────────────────────────────────
+# ── Create Baseline policy values figure ──────────────────────────────────────
+# Compute oracular policy values for all baselines
 values<- apply(data.frame(1:30), 1, function(i){
   dopt <- results_list[[i]]$doptFactorPredict_new_naive
   apply(data.frame(1:ncol(dopt)), 1, function(j){
     potential.outcomes[cbind(1:nrow(potential.outcomes), dopt[,j])] |> mean()})})
 
 numalgs <- ncol(results_list[[1]]$doptFactorPredict_new_naive)
+# (including the aggregation of all baselines)
 agg_value<- apply(data.frame(1:30), 1, function(i){
   dopt <- results_list[[i]]$doptFactorPredict_new_naive
   unweighted_probs <- weighted_probs_experts(fitted_experts = dopt,weights =rep(1/numalgs, numalgs),
@@ -319,10 +316,8 @@ agg_value<- apply(data.frame(1:30), 1, function(i){
     rmultinom(1,1,prob=x)}), 2, which.max)
   potential.outcomes[cbind(1:nrow(potential.outcomes), unweighted_aggregation)] |> mean()})
 
-
 values <- as.data.frame(t(rbind(values,agg_value)))
 colnames(values) <- c(colnames(results_list[[1]]$doptFactorPredict_new_naive),"Aggregation")
-
 values |>
   pivot_longer(cols = everything(), 
                names_to = "Method", 
@@ -332,12 +327,10 @@ values |>
   ggplot2::geom_hline(ggplot2::aes(yintercept = opt.value), colour = "black")+
   ggplot2::geom_hline(ggplot2::aes(yintercept = random.value), colour = "red")
 
-
 ggplot2::ggsave( filename= file.path(subdir_path,"Naive_policy_values.pdf"),
                  width = 10, height = 6)
 
-
-# ── Create heatmap for motivation ─────────────────────────────────────────────
+# ── Create heatmap for introduction ───────────────────────────────────────────
 true_df <- as.data.frame(do.call(rbind, SL.out$optimal_policy_new))|>
   mutate(Row = row_number()) |>
   pivot_longer(
@@ -346,6 +339,7 @@ true_df <- as.data.frame(do.call(rbind, SL.out$optimal_policy_new))|>
   ) |>
   mutate(Levels = factor(Levels, levels=levels_A))
 
+# Ground truth column
 true_heatmap <- ggplot(true_df
                        |> filter(`Row`<=10), 
                        aes(x = name, y = `Row`, fill = `Levels`)) +
@@ -362,19 +356,20 @@ true_heatmap <- ggplot(true_df
     plot.margin = ggplot2::margin(b = 44, r=-5)
   )
 
+# Baseline policies column
 heatmap_data <- results_list[[1]]$doptFactorPredict_new_naive |> 
   as.data.frame() |>
   mutate(Row = row_number()) |>
   pivot_longer(
     cols = -Row,
     names_to = "Policy learning method",
-    values_to = "Levels"
+    values_to = "Treatments"
   ) |>
-  mutate(Levels = factor(Levels)) # , levels = levels_A
+  mutate(Treatments = factor(Treatments)) # , levels = levels_A
 
 heatmap_pl <- ggplot(heatmap_data |> 
                        filter(`Row`<=10), aes(x = `Policy learning method`, 
-                                              y = `Row`, fill = `Levels`)) +
+                                              y = `Row`, fill = `Treatments`)) +
   geom_tile(linewidth = 0.1)+
   scale_fill_manual(values = viridisLite::viridis(m), 
                     drop=TRUE, 
@@ -399,11 +394,11 @@ optimal_treatments <- function(df) {
   mat <- matrix(0, nrow = nrow(df), ncol = 5)
   mat[, 1:2] <- df
   if(type=="linear"){
-    p_o <- mu_P0_normal(mat)
+    p_o <- mu_P_linear(mat)
   }else if(type=="complex"){
-    p_o <- mu_P0_complex(mat)
+    p_o <- mu_P_complex(mat)
   }else{
-    p_o <- mu_P0_tree(mat)
+    p_o <- mu_P_tree(mat)
   }
   apply(data.frame(1:nrow(mat)), 1, function(i){
     paste0("{",
@@ -435,30 +430,4 @@ ggplot2::ggsave(plot_sythetic_scenario,
                                     paste0("Synthetic_data_", type, ".pdf")),
                 width = 10, height = 6)
 
-
-# ── Create colored naive method boxplot  ──────────────────────────────────────
-library(scales)
-long_df <- cbind(
-  SL.out$df_new_sample[, c("X1", "X2")],
-  results_list[[1]]$doptFactorPredict_new_naive) |>
-  pivot_longer(
-    cols = -c(X1, X2),
-    names_to = "Policy",
-    values_to = "Value"
-  )
-
-default_2_colors <- hue_pal()(2)
-
-ggplot(long_df, aes(x = X1, y = X2, color = factor(Value))) +
-  geom_point() +
-  # scale_color_manual(
-  #   values = c(
-  #     "1" = default_2_colors[1], 
-  #     "2" = default_2_colors[1], 
-  #     "3" = default_2_colors[2], 
-  #     "4" = "green",
-  #   name = "Category")) +
-  facet_wrap(~ Policy)
-
-ggsave(filename = file.path(subdir_path, "naive_colors.pdf"))
 
