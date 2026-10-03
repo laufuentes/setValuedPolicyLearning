@@ -148,7 +148,7 @@ set_policy_value_plug_in <- function(test_set, test, Q.all.actions,
 #'  set-policy value and propensity set-policy value.
 #' @export
 set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab, 
-                                  levels= 1:4, zero_indexed = FALSE) {
+                                  levels= 1:4, zero_indexed = FALSE, z= qnorm(0.95)) {
   
   n <- length(Y) 
   m <- ncol(Q.all.actions)
@@ -166,11 +166,11 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
   if (zero_indexed) conf <- lapply(conf, function(s) s + 1L)   # -> 1-indexed
   
   g <- gAX.pred
-  #g <- pmax(gAX.pred, eps.g)
-  #g <- g / rowSums(g)
+  g <- pmax(g, 0.01)
+  g <- g / rowSums(g)
+  
 
-  # generic targeting step: q_mat = target weights, H_mat = clever covariates (n x m)
-  tmle <- function(q_mat, H_mat) {
+  tmle <- function(q_mat, H_mat, propensity = FALSE) {
     H_obs <- H_mat[cbind(row_idx, A_col)]
     logit_Q_obs <- logit.Qd01[cbind(row_idx, A_col)]
     update <- stats::glm(
@@ -178,7 +178,20 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
     e <- update$coefficients
     Qd01_star = stats::plogis(logit.Qd01 + e * H_mat)
     Qd_stars  = Qd01_star * diff(ab) + min(ab)
-    rowSums(Qd_stars * q_mat) |> mean()
+    m_star <- rowSums(Qd_stars * q_mat)
+
+    phi <- if (propensity){
+      m_star + H_obs * (Y - m_star)
+    }else{
+        m_star + H_obs * (Y - Qd_stars[cbind(row_idx, A_col)])
+    }
+    
+    out <- mean(m_star) 
+    se  <- sd(phi) / sqrt(n)
+    attr(out, "se")   <- se
+    attr(out, "low")  <- out - z * se
+    attr(out, "high") <- out + z * se
+    out
   }
   
   # uniform SPV
@@ -190,10 +203,11 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
   res_unif <- tmle(q_unif, q_unif / g)
   
   # propensity SPV
+  g <- gAX.pred
   g_c <- rowSums(Ind * g)
-  g_c <- pmax(g_c, 1e-4)
+  g_c <- pmax(g_c, 0.01)
   q_p <- Ind * g / g_c
-  res_prop <- tmle(q_p, Ind / g_c)
+  res_prop <- tmle(q_p, Ind / g_c, propensity = TRUE)
   
   list(results = res_unif, results_non_random = res_prop)
 }
@@ -215,7 +229,7 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
 #' set-policy value and propensity set-policy value.
 #' @export
 set_policy_value_aipw <- function(test_set, Q.all.actions, gAX.pred, Y, A, 
-                                  levels= 1:4, zero_indexed = FALSE) {
+                                  levels= 1:4, zero_indexed = FALSE, z= qnorm(0.95)) {
   
   n <- nrow(Q.all.actions)
   m<- length(levels)
@@ -232,14 +246,20 @@ set_policy_value_aipw <- function(test_set, Q.all.actions, gAX.pred, Y, A,
   for (i in row_idx) Ind[i, test_set[[i]]] <- 1
   Ind[rowSums(Ind)==0,] <- 1
   
+  ci <- function(phi) {
+    out <- mean(phi)
+    se  <- sd(phi) / sqrt(n)
+    attr(out, "se")   <- se
+    attr(out, "low")  <- out - z * se
+    attr(out, "high") <- out + z * se
+    out}
+  
   q_unif <- Ind /rowSums(Ind)
   g_obs <- gAX.pred[cbind(row_idx, A_col)]
   Q.obs <-  Q.all.actions[cbind(row_idx, A_col)]
   
-  m_est_unif <- rowSums(Q.all.actions * q_unif)
-  one_step_unif <- m_est_unif + (q_unif[cbind(row_idx, A_col)]/g_obs)*(Y- Q.obs)
-  
-  results <-  mean(one_step_unif)
+  one_step_unif <- rowSums(Q.all.actions * q_unif) + 
+    (q_unif[cbind(row_idx, A_col)]/g_obs)*(Y- Q.obs)
   
   g_c <- rowSums(Ind * gAX.pred)
   q_p    <- Ind * gAX.pred / g_c
@@ -247,9 +267,8 @@ set_policy_value_aipw <- function(test_set, Q.all.actions, gAX.pred, Y, A,
   
   m_est_prop <- rowSums(Q.all.actions * q_p)
   one_step_prop <- m_est_prop + w*(Y-m_est_prop)
-  results_non_random <- mean(one_step_prop)
-  
-  return(list(results,results_non_random))
+
+  return(list(ci(one_step_unif), ci(one_step_prop)))
 }
 
 #' Set-policy values for IVF data example
