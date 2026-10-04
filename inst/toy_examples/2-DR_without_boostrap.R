@@ -16,7 +16,7 @@ set.seed(seed)
 VFolds <- 2 # folds to split data
 
 n <- 10000
-type <- "linear"
+type <- "tree"
 alpha <- 0.1
 z <- qnorm(1 - alpha/2)
 
@@ -98,10 +98,10 @@ base_args <- list(
   test     = df_test, levels = levels_A,
   Y        = Y_new,A = A_new,ab = ab) 
 
-pred_grid_well <- map(seq_len(m), function(val) {
-   d <- df_test[, c(covariates_name, treatment_name)]
-   d[[treatment_name]] <- factor(val, levels = levels_A)
-   d })
+# pred_grid_well <- map(seq_len(m), function(val) {
+#    d <- df_test[, c(covariates_name, treatment_name)]
+#    d[[treatment_name]] <- factor(val, levels = levels_A)
+#    d })
 
 pred_grid_miss <- map(seq_len(m), function(val) {
   d <- df_test[, c("X2", "X3", "X4", "X5", treatment_name)]
@@ -109,7 +109,7 @@ pred_grid_miss <- map(seq_len(m), function(val) {
   d
 })
 
-predict_potential_outcomes <- function(model, grid) {
+predict_SL <- function(model, grid) {
   sapply(grid, function(newdata) {
     SuperLearner::predict.SuperLearner(model, newdata = newdata)$pred
   })
@@ -120,34 +120,36 @@ SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgbo
 
 # ── Train outcome models (Q) ────────────────────────────────────────────────
 # Correctly specified 
-QAW.reg.train <- SuperLearner::SuperLearner(
-       Y = train2[, outcome_name],
-       X = train2[, c(covariates_name, treatment_name)],
-       SL.library = SL.library_cond, family = "gaussian") 
-potential_outcomes_new <- predict_potential_outcomes(QAW.reg.train, pred_grid_well)
-#potential_outcomes_new <- potential_outcomes
+# QAW.reg.train <- SuperLearner::SuperLearner(
+#        Y = train2[, outcome_name],
+#        X = train2[, c(covariates_name, treatment_name)],
+#        SL.library = SL.library_cond, family = "gaussian") 
+# potential_outcomes_new <- predict_SL(QAW.reg.train, pred_grid_well)
+potential_outcomes_new <- potential_outcomes
   
 # Mis-specified 
 QAW.reg.train_misspecified <- SuperLearner::SuperLearner(
     Y = train2[, outcome_name], 
     X = train2[, c("X2", "X3", "X4", "X5", treatment_name)],
     SL.library = SL.library_cond, family = "gaussian") 
-potential_outcomes_new_misspecified <- predict_potential_outcomes(QAW.reg.train_misspecified, pred_grid_miss)
+potential_outcomes_new_misspecified <- predict_SL(QAW.reg.train_misspecified, pred_grid_miss)
   
 # ── Train propensity score models (g) ─────────────────────────────────────────
 # Correctly specified 
-gAX.train <- grf::probability_forest(
-       X = train2[, covariates_name], 
-       Y = as.factor(train2[, treatment_name])) 
-gAX.pred <- stats::predict(gAX.train, newdata = df_test[, covariates_name])$predictions
-# gAX.pred <- prop_score_new
+# gAX.train <- grf::probability_forest(
+#        X = train2[, covariates_name], 
+#        Y = as.factor(train2[, treatment_name])) 
+# gAX.pred <- stats::predict(gAX.train, newdata = df_test[, covariates_name])$predictions
+gAX.pred <- prop_score_new
   
 # Mis-specified
 gAX.train_misspecified <- grf::probability_forest(
-    X = train2[, c("X2", "X3", "X4", "X5")], 
-    Y = as.factor(train2[, treatment_name]))
+     X = train2[, c("X2", "X3", "X4", "X5")], 
+     Y = as.factor(train2[, treatment_name]))
+
+
 gAX.pred_misspecified <- stats::predict(gAX.train_misspecified, 
-                                          newdata = df_test[, c("X2", "X3", "X4", "X5")])$predictions
+                                        newdata = df_test[, c("X2","X3", "X4", "X5")])
   
 # ── Define Model Combinations ───────────────────────────────────────
 models <- list(
