@@ -1,20 +1,6 @@
 train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   set.seed(seed)
-  
-  message("training experts (conformal prediction)...\n")
-    get_best_action <- function(model, base_df, m_levels, covariates, treatment, pred_fun = stats::predict) {
-    n <- nrow(base_df)
-    # Expand data once across all treatment levels
-    expanded_df <- base_df[rep(seq_len(n), times = length(m_levels)), c(covariates, treatment), drop = FALSE]
-    expanded_df[[treatment]] <- factor(rep(m_levels, each = n), levels = levels_A)
-    
-    preds <- pred_fun(model, expanded_df)
-    if (is.list(preds) && "pred" %in% names(preds)) preds <- preds$pred
-    if (is.list(preds) && "predictions" %in% names(preds)) preds <- preds$predictions
-    pred_mat <- matrix(preds, nrow = n, ncol = length(m_levels))
-    max.col(pred_mat, ties.method = "first")
-  }
-  
+  cat("training conformal...")
   # Extract base datasets
   X_b <- train_b[, covariates_name, drop = FALSE]
   A_b <- train_b[, treatment_name]
@@ -22,142 +8,220 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   
   X_train <- train1[, covariates_name, drop = FALSE]
   A_train <- train1[, treatment_name]   
-  Y_train <- train1[, outcome_name]   
+  Y_train <- train1[, outcome_name]  
   
-  m_levels <- 1:m
-  df_new <- df_new_sample
-  
+  numeric_levels_A <- as.numeric(levels_A)
   pred_calibration <- list()
-  pred_pseudo_data <- list()
+  pred_pseudo_data  <- list()
   
-  ## ── 1. Probability forest
-  proba.forest <- grf::probability_forest(X=cbind(X_train, A_train), 
-                                     Y = Y_train %>% as.factor(), seed = seed)
+  ## 1. Probability forest  ────────────────────────────────────────────────────
+  proba.forest <- probability_forest(
+    X = cbind(X_train, A_train), 
+    Y = as.factor(Y_train))
   
-  pf_pred <- function(mod, data) {
-    X_mat <- cbind(as.matrix(data[, covariates_name, treatment_name]))
-    X_mat[, treatment_name] <- as.numeric(data[[treatment_name]])
-    stats::predict(mod, newdata = X_mat)$predictions[,2]
-  }
+  cal_template <- calibration[, c(covariates_name, treatment_name)]
+  po_calibration <- sapply(numeric_levels_A, function(val) {
+    cal_template[[treatment_name]] <- val
+    stats::predict(proba.forest, newdata = cal_template)$predictions[, 2]})
   
-  pred_calibration[["proba.forest"]] <- get_best_action(proba.forest, calibration, 
-                                                        m_levels, covariates_name, treatment_name, pred_fun = pf_pred)
+  pred_calibration[["proba.forest"]] <- max.col(po_calibration) - 1
   
-  pred_pseudo_data[["proba.forest"]] <- get_best_action(proba.forest, pseudo_test, 
-                                                        m_levels, covariates_name, treatment_name, pred_fun = pf_pred)
-
+  pseudo_template <- pseudo_test[, covariates_name, drop = FALSE]
+  po_pseudo <- sapply(numeric_levels_A, function(val) {
+    pseudo_template[[treatment_name]] <- val
+    stats::predict(proba.forest, newdata = pseudo_template)$predictions[, 2]
+  })
+  pred_pseudo_data[["proba.forest"]] <- max.col(po_pseudo) - 1
+  
   ## ── 2. MACF ─────────────────────────────────────────────────────────────────
-  forest <- grf::multi_arm_causal_forest(
-    X = X_train, Y = Y_train, W = as.factor(A_train))
+  multi.forest <- grf::multi_arm_causal_forest(X = X_train, Y = Y_train, 
+                                               W = as.factor(A_train))
   
-  cate_cal <- predict(forest, calibration[, covariates_name])$predictions[, , 1]
-  pred_calibration[["MACF"]] <- max.col(cbind(0, cate_cal), ties.method = "first")
+  preds_cal_macf <- predict(multi.forest, calibration[, covariates_name])$predictions 
+  pred_calibration[["MACF"]] <- as.numeric(preds_cal_macf[, , 1] > 0)
   
-  cate_cal_p <- predict(forest, pseudo_test[, covariates_name])$predictions[, , 1]
-  pred_pseudo_data[["MACF"]] <- max.col(cbind(0, cate_cal_p), ties.method = "first")
+  preds_pseudo_macf <- predict(multi.forest, pseudo_test[, covariates_name])$predictions 
+  pred_pseudo_data[["MACF"]] <- as.numeric(preds_pseudo_macf[, , 1] > 0)
   
   ## ── 3. Policytree & Hybrid ──────────────────────────────────────────────────
+  forest <- grf::causal_forest(X = X_train, Y = Y_train, W = as.numeric(A_train))
   DR.scores <- policytree::double_robust_scores(forest)
   
   tree <- policytree::policy_tree(X_train, Gamma = DR.scores)
-  pred_calibration[["Tree"]] <- stats::predict(tree, newdata = calibration[, covariates_name])
-  pred_pseudo_data[["Tree"]] <- stats::predict(tree, newdata = pseudo_test[, covariates_name])
-
-  hybrid_tree <- policytree::hybrid_policy_tree(X_train, Gamma = DR.scores, depth = 3)
-  pred_calibration[["Hybrid_Tree"]] <- stats::predict(hybrid_tree, newdata = calibration[, covariates_name])
-  pred_pseudo_data[["Hybrid_Tree"]] <- stats::predict(hybrid_tree, newdata = pseudo_test[, covariates_name])
-
-  ## ── 5. Q-learning: SuperLearner ────────────────────────────────────────────
-  SL.library_cond <- c("SL.randomForest", "SL.ksvm", "SL.mean", "SL.glm", "SL.xgboost")
+  pred_calibration[["Tree"]] <- stats::predict(tree, newdata = calibration[, covariates_name]) - 1  
+  pred_pseudo_data[["Tree"]] <- stats::predict(tree, newdata = pseudo_test[, covariates_name]) - 1 
   
-  QL_mod <- SuperLearner::SuperLearner( 
-    Y = Y_train, X = train1[, c(covariates_name, treatment_name)],
-    SL.library = SL.library_cond, family = "binomial")
+  hybrid_tree <- policytree::hybrid_policy_tree(X_train, Gamma = DR.scores)
+  pred_calibration[["Hybrid_Tree"]] <- stats::predict(hybrid_tree, newdata = calibration[, covariates_name]) - 1 
+  pred_pseudo_data[["Hybrid_Tree"]] <- stats::predict(hybrid_tree, newdata = pseudo_test[, covariates_name]) - 1
   
-  sl_pred <- function(mod, data) SuperLearner::predict.SuperLearner(mod, newdata = data)$pred
+  ## ── 4. Q-learning: SuperLearner ────────────────────────────────────────────
+  SL.library_cond <- c("SL.randomForest", "SL.mean", "SL.gam", "SL.glm", 
+                       "SL.xgboost")
+  idx_A1 <- train1[[treatment_name]] == 1
+  idx_A0 <- train1[[treatment_name]] == 0
   
-  pred_calibration[["ql.SL"]] <- get_best_action(QL_mod, calibration, m_levels, covariates_name, treatment_name, pred_fun = sl_pred)
-  pred_pseudo_data[["ql.SL"]] <- get_best_action(QL_mod, pseudo_test, m_levels, covariates_name, treatment_name, pred_fun = sl_pred)
+  SL_A1 <- SuperLearner::SuperLearner(
+    Y = as.numeric(Y_train[idx_A1]),
+    X = train1[idx_A1, covariates_name, drop = FALSE],
+    SL.library = SL.library_cond, family = binomial())
   
-  ## ── 6. Q-learning with linear model  ───────────────────────────────────────
-  f_lm <- stats::as.formula(paste(outcome_name, "~ (", paste(covariates_name, collapse = "+"), ")*", treatment_name))
-  ql.lm <- stats::glm(formula = f_lm, data = train1, family = "binomial")
+  SL_A0 <- SuperLearner::SuperLearner(
+    Y = as.numeric(Y_train[idx_A0]),
+    X = train1[idx_A0, covariates_name, drop = FALSE],
+    SL.library = SL.library_cond, family = binomial())
   
-  pred_calibration[["ql.lm.interact"]] <- get_best_action(ql.lm, calibration, m_levels, covariates_name, treatment_name)
-  pred_pseudo_data[["ql.lm.interact"]] <- get_best_action(ql.lm, pseudo_test, m_levels, covariates_name, treatment_name)
+  cal_df <- as.data.frame(calibration[, covariates_name, drop = FALSE])
+  cal_preds1 <- predict(SL_A1, newdata = cal_df)$pred
+  cal_preds0 <- predict(SL_A0, newdata = cal_df)$pred
+  pred_calibration[["ql.SL"]] <- as.numeric(cal_preds1 > cal_preds0)
   
+  pseudo_df <- as.data.frame(pseudo_test[, covariates_name, drop = FALSE])
+  pseudo_preds1 <- predict(SL_A1, newdata = pseudo_df)$pred
+  pseudo_preds0 <- predict(SL_A0, newdata = pseudo_df)$pred
+  pred_pseudo_data[["ql.SL"]] <- as.numeric(pseudo_preds1 > pseudo_preds0)
+  
+  ## ── 5. Q-learning : linear model with interactions ─────────────────────────
+  form_str <- formula(paste(outcome_name, "~ (", paste(covariates_name, collapse = "+"), ")*", treatment_name))
+  ql.glm.interact <- stats::glm(formula = form_str, data = train1, family = "binomial")
+  
+  po.glm <- sapply(numeric_levels_A, function(val) {
+    cal_template[[treatment_name]] <- val
+    stats::predict(ql.glm.interact, newdata = cal_template, type = "response")
+  })
+  pred_calibration[["ql.glm.interact"]] <- max.col(po.glm) - 1
+  
+  po_pseudo.glm <- sapply(numeric_levels_A, function(val) {
+    pseudo_template[[treatment_name]] <- val
+    stats::predict(ql.glm.interact, newdata = pseudo_template, type = "response")
+  })
+  pred_pseudo_data[["ql.glm.interact"]] <- max.col(po_pseudo.glm) - 1
+  
+  # Group expert predictions
   libraryNames <- names(pred_calibration)
+  numalgs <- length(libraryNames)
+  
   doptFactorPredict_cal <- do.call(cbind, pred_calibration)
   doptFactorPredict_pseudo <- do.call(cbind, pred_pseudo_data)
-
-  ## ── 7. Naive method & GLB ──────────────────────────────────────────────────
-  message("training experts (naive version & GLB)...\n")
   
-  pred_new_data_naive <- list()
+  ## ── 6. Naive Method & GLB Models ───────────────────────────────────────────
+  cat("training baselines & GLB...")
   
-  glb.model.lm <- stats::glm(formula = f_lm, data = train_b, family = "binomial")
-  pred_new_data_naive[["ql.lm.interact"]] <- get_best_action(glb.model.lm, df_new, m_levels, covariates_name, treatment_name)
+  pred_pseudo_data_naive <- list()
+  pred_new_data_naive    <- list()
   
-  glb.model.pf <- grf::probability_forest(X = cbind(X_b, as.numeric(A_b)), Y = Y_b %>% as.factor(), seed = seed)
-  pred_new_data_naive[["proba.forest"]] <- get_best_action(glb.model.pf, df_new, m_levels, covariates_name, treatment_name, pred_fun = pf_pred)
+  selected_methods <- "MACF"
   
-  forest_b <- grf::multi_arm_causal_forest(X = X_b, Y = Y_b, W = as.factor(A_b))
-  cate_new_b <- predict(forest_b, X_new)$predictions[, , 1]
-  pred_new_data_naive[["MACF"]] <- max.col(cbind(0, cate_new_b), ties.method = "first")
+  # Probability Forest (GLB Model)
+  model.glb.pf <- probability_forest(
+    X = cbind(X_b, A_b), 
+    Y = as.factor(Y_b))
   
-  DR.scores_b <- policytree::double_robust_scores(forest_b)
-  tree_b <- policytree::policy_tree(X_b, Gamma = DR.scores_b)
-  pred_new_data_naive[["Tree"]] <- stats::predict(tree_b, X_new)
+  df_new_template <- df_new_sample[, covariates_name, drop = FALSE]
+  po_naive <- sapply(numeric_levels_A, function(val) {
+    df_new_template[[treatment_name]] <- val
+    stats::predict(model.glb.pf, newdata = df_new_template)$predictions[, 2]
+  })
+  pred_new_data_naive[["proba.forest"]] <- max.col(po_naive) - 1
   
-  hybrid_tree_b <- policytree::hybrid_policy_tree(X_b, Gamma = DR.scores_b)
-  pred_new_data_naive[["Hybrid_Tree"]] <- stats::predict(hybrid_tree_b, newdata = X_new)
+  po_pseudo_naive <- sapply(numeric_levels_A, function(val) {
+    pseudo_template[[treatment_name]] <- val
+    stats::predict(model.glb.pf, newdata = pseudo_template)$predictions[, 2]
+  })
+  pred_pseudo_data_naive[["proba.forest"]] <- max.col(po_pseudo_naive) - 1
   
-  QL_mod_b <- SuperLearner::SuperLearner(
-    Y = Y_b, X = train_b[, c(covariates_name, treatment_name)],
-    SL.library = SL.library_cond, family = "binomial"
+  ## ── 2. MACF ─────────────────────────────────────────────────────────────────
+  multi.forest_b <- grf::multi_arm_causal_forest(
+    X = X_b, Y = Y_b, W = as.factor(A_b)
   )
-  pred_new_data_naive[["ql.SL"]] <- get_best_action(QL_mod_b, df_new, m_levels, covariates_name, treatment_name, pred_fun = sl_pred)
+  X_new <- df_new_sample[, covariates_name, drop = FALSE]
+  
+  preds_new_macf_naive <- predict(multi.forest_b, X_new)$predictions 
+  pred_new_data_naive[["MACF"]] <- as.numeric(preds_new_macf_naive[, , 1] > 0)
+  
+  preds_pseudo_macf_naive <- predict(multi.forest_b, pseudo_test[, covariates_name])$predictions 
+  pred_pseudo_data_naive[["MACF"]] <- as.numeric(preds_pseudo_macf_naive[, , 1] > 0)
+  
+  ## ── 3. Policytree & Hybrid ──────────────────────────────────────────────────
+  forest_b <- grf::causal_forest(X = X_b, Y = Y_b, W = as.numeric(A_b))
+  DR.scores_b <- policytree::double_robust_scores(forest_b)
+  
+  tree_naive <- policytree::policy_tree(X_b, Gamma = DR.scores_b)
+  pred_new_data_naive[["Tree"]] <- stats::predict(tree_naive, newdata = X_new) - 1   
+  pred_pseudo_data_naive[["Tree"]] <- stats::predict(tree_naive, newdata = pseudo_test[, covariates_name]) - 1   
+  
+  hybrid_tree_naive <- policytree::hybrid_policy_tree(X_b, Gamma = DR.scores_b)
+  pred_new_data_naive[["Hybrid_Tree"]] <- stats::predict(hybrid_tree_naive, newdata = X_new) - 1 
+  pred_pseudo_data_naive[["Hybrid_Tree"]] <- stats::predict(hybrid_tree_naive, newdata = pseudo_test[, covariates_name]) - 1
+  
+  ## ── 4. Q-learning: SuperLearner ────────────────────────────────────────────
+  idx_b1 <- train_b[[treatment_name]] == 1
+  idx_b0 <- train_b[[treatment_name]] == 0
+  
+  SL_A1_b <- SuperLearner::SuperLearner(
+    Y = as.numeric(Y_b[idx_b1]),
+    X = train_b[idx_b1, covariates_name, drop = FALSE],
+    SL.library = SL.library_cond, family = binomial())
+  
+  SL_A0_b <- SuperLearner::SuperLearner(
+    Y = as.numeric(Y_b[idx_b0]),
+    X = train_b[idx_b0, covariates_name, drop = FALSE],
+    SL.library = SL.library_cond, family = binomial())
+  
+  df_new_df <- as.data.frame(df_new_sample[, covariates_name, drop = FALSE])
+  new_preds1_naive <- predict(SL_A1_b, newdata = df_new_df)$pred
+  new_preds0_naive <- predict(SL_A0_b, newdata = df_new_df)$pred
+  pred_new_data_naive[["ql.SL"]] <- as.numeric(new_preds1_naive > new_preds0_naive)
+  
+  pseudo_preds1_naive <- predict(SL_A1_b, newdata = pseudo_df)$pred
+  pseudo_preds0_naive <- predict(SL_A0_b, newdata = pseudo_df)$pred
+  pred_pseudo_data_naive[["ql.SL"]] <- as.numeric(pseudo_preds1_naive > pseudo_preds0_naive)
+  
+  ## ── 6. Q-learning : generalized linear model with interactions ─────────────
+  model.glb.glm <- stats::glm(formula = form_str, data = train_b, family = "binomial")
+  
+  po.glm <- sapply(numeric_levels_A, function(val) {
+    df_new_template[[treatment_name]] <- val
+    stats::predict(model.glb.glm, newdata = df_new_template, type = "response")
+  })
+  pred_new_data_naive[["ql.glm.interact"]] <- max.col(po.glm) - 1
+  
+  po_pseudo.glm <- sapply(numeric_levels_A, function(val) {
+    pseudo_template[[treatment_name]] <- val
+    stats::predict(model.glb.glm, newdata = pseudo_template, type = "response")
+  })
+  pred_pseudo_data[["ql.glm.interact"]] <- max.col(po_pseudo.glm) - 1
   
   doptFactorPredict_new_naive <- do.call(cbind, pred_new_data_naive)
-  numalgs_naive <- ncol(doptFactorPredict_new_naive)
+  doptFactorPredict_pseudo_naive <- do.call(cbind, pred_pseudo_data_naive)
   
-  selected_methods <- c("MACF")
+  unweighted_probs_naive <- weighted_probs_experts(fitted_experts = doptFactorPredict_new_naive,
+                                                   weights =rep(1/numalgs, numalgs),
+                                                   df_pred = df_new_sample,
+                                                   levels =levels_A)
   
-  results.policy <- lapply(selected_methods, function(method){
-    single.naive <- doptFactorPredict_new_naive[, method]
-    table.evaluation.real(single.naive, 
-                          prop_score_new = gAW.pred.pseudo.r, 
-                          potential_outcomes = Q.all.pseudo.r,
-                          df_new_sample = df_new_sample,
-                          levels_A = levels_A, 
-                          treatment_name = treatment_name, 
-                          outcome_name = outcome_name)})
+  unweighted.naive <- apply(
+    apply(unweighted_probs_naive, 1, 
+          function(x){rmultinom(1, 1, prob=x)}), 2, which.max)-1
   
-  unweighted_probs_naive <- weighted_probs_experts(
-    fitted_experts = doptFactorPredict_new_naive,
-    weights = rep(1 / numalgs_naive, numalgs_naive),
-    df_pred = df_new,
-    levels = as.numeric(levels_A))
+  unweighted_probs_naive_pseudo <- weighted_probs_experts(fitted_experts = doptFactorPredict_pseudo_naive,
+                                                          weights =rep(1/numalgs, numalgs),
+                                                          df_pred = pseudo_test,
+                                                          levels = as.numeric(levels_A))
   
-  # Vectorized Multinomial Sampling replace apply loop
-  unweighted_new_naive <- max.col(
-    t(apply(unweighted_probs_naive, 1, function(p) stats::rmultinom(1, 1, prob = p))), 
-    ties.method = "first")
+  unweighted.pseudo.naive <- apply(
+    apply(unweighted_probs_naive_pseudo, 1, 
+          function(x){rmultinom(1, 1, prob=x)}), 2, which.max)-1
   
-  results.policy.agg <- table.evaluation.real(unweighted_new_naive, 
-                                              prop_score_new = gAW.pred.pseudo.r, 
-                                              potential_outcomes = Q.all.pseudo.r,
-                                              df_new_sample = df_new_sample,
-                                              levels_A = levels_A, 
-                                              treatment_name = treatment_name, 
-                                              outcome_name = outcome_name)
-  
+  colnames(unweighted_probs_naive)  <- colnames(unweighted_probs_naive_pseudo)  <- as.numeric(levels_A)
   return(list(
     doptFactorPredict_cal = doptFactorPredict_cal, 
+    doptFactorPredict_pseudo = doptFactorPredict_pseudo,
     doptFactorPredict_new_naive = doptFactorPredict_new_naive, 
-    glb.model.grf = glb.model.grf, 
-    glb.model.lm = glb.model.lm, 
-    selected_methods = selected_methods,
-    results.policy = results.policy, 
-    results.policy.agg = results.policy.agg))
+    doptFactorPredict_pseudo_naive = doptFactorPredict_pseudo_naive,
+    model.glb.pf = model.glb.pf, 
+    model.glb.glm = model.glb.glm, 
+    selected_methods = selected_methods, 
+    unweighted.naive_new = unweighted.naive,
+    unweighted.pseudo.naive=unweighted.pseudo.naive))
 }

@@ -41,7 +41,9 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   }
   
   pred_calibration[["proba.forest"]] <- get_best_action(proba.forest, calibration, 
-                                                        m_levels, covariates_name, treatment_name, pred_fun = pf_pred)
+                                                        m_levels, covariates_name, 
+                                                        treatment_name, 
+                                                        pred_fun = pf_pred, Factor=FALSE)
   
   pred_pseudo_data[["proba.forest"]] <- get_best_action(proba.forest, pseudo_test, 
                                                         m_levels, covariates_name, treatment_name, pred_fun = pf_pred)
@@ -123,15 +125,6 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   
   selected_methods <- c("MACF")
   
-  results.policy <- lapply(selected_methods, function(method){
-    single.naive <- doptFactorPredict_new_naive[, method]
-    table.evaluation.real(single.naive, 
-                          prop_score_new = gAW.pred.pseudo.r, 
-                          potential_outcomes = Q.all.pseudo.r,
-                          df_new_sample = df_new_sample,
-                          levels_A = levels_A, 
-                          treatment_name = treatment_name, 
-                          outcome_name = outcome_name)})
   
   unweighted_probs_naive <- weighted_probs_experts(
     fitted_experts = doptFactorPredict_new_naive,

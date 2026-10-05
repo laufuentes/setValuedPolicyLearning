@@ -126,7 +126,7 @@ generate_data <- function(n, seed=NA, is_RCT= TRUE, type = c("linear", "complex"
       s1_pos <- stats::plogis(X[, 1]) 
       s2_pos <- stats::plogis(X[, 2]) 
   
-      w_Q1 <- (1 - s1_pos ) * (1 - s2_pos)  # X1 <= 0, X2 <= 0
+      w_Q1 <- (1 - s1_pos) * (1 - s2_pos)  # X1 <= 0, X2 <= 0
       w_Q2 <- s1_pos * s2_pos  # X1 > 0,  X2 > 0
       w_Q3 <- (1 - s1_pos) * s2_pos  # X1 <= 0, X2 > 0
       w_Q4 <- s1_pos * (1 - s2_pos)  # X1 > 0,  X2 <= 0

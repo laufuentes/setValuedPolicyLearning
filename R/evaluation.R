@@ -499,5 +499,42 @@ table.evaluation.real <- function(test_set,
                                     levels = levels_A, zero_indexed = zero_indexed)
   spv.unif.tmle <- spv.tmle[[1]]
   spv.propensity.tmle <- spv.tmle[[2]]
-  return(list(cardinality.mean, spv.unif.aipw, spv.propensity.aipw, spv.unif.tmle,spv.propensity.tmle))
+  
+  results_df <- rbind(
+    data.frame(
+      estimator = "AIPW",
+      policy = "Uniform",
+      value = spv.unif.aipw,       # adjust $value to match your object structure
+      lower = attr(spv.unif.aipw, "low"),
+      upper = attr(spv.unif.aipw, "high"),
+      stringsAsFactors = FALSE),
+    data.frame(
+      estimator = "AIPW",
+      policy = "Propensity",
+      value = spv.propensity.aipw,
+      lower = attr(spv.propensity.aipw,"low"),
+      upper = attr(spv.propensity.aipw,"high"),
+      stringsAsFactors = FALSE
+    ),
+    data.frame(
+      estimator = "TMLE",
+      policy = "Uniform",
+      value = spv.unif.tmle,
+      lower = attr(spv.unif.tmle, "low"),
+      upper = attr(spv.unif.tmle, "high"),
+      stringsAsFactors = FALSE
+    ),
+    data.frame(
+      estimator = "TMLE",
+      policy = "Propensity",
+      value = spv.propensity.tmle,
+      lower = attr(spv.propensity.tmle, "low"),
+      upper = attr(spv.propensity.tmle, "high"),
+      stringsAsFactors = FALSE
+    )
+  )
+  
+  
+  
+  return(list(cardinality.mean, results_df))
 }
