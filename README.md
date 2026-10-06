@@ -57,6 +57,7 @@ The scripts are organized by experiment type. Running these will automatically
 generate the `images/` folders.
 
 ```
-# Execute the main toy example script
+# Execute the main toy example script specifying the type of synthetic setting 
+# ("linear" or "tree") 
 source("inst/toy_examples/1-main_experiment.R")
 ```
