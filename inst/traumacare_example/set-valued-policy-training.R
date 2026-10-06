@@ -18,7 +18,7 @@ n_rate <- length(random_rate)
 alpha <- 0.1
 z <- qnorm(1 - alpha/2)
 
-# ── Load data  ──────────────────────────────────────────────
+# ── Load data  ────────────────────────────────────────────────────────────────
 ### Train samples
 train_imp_onehot <- read.csv("inst/traumacare_example/intermediate/train_imp_one_hot.csv")
 df_obs <- train_imp_onehot # use train_imp (if want to use no-one-hot encoded version)
@@ -110,7 +110,7 @@ train1 <- train[folds_conformal[[1]],] # generate noisy labels
 train2 <-  train[folds_conformal[[2]],] # score model and nuisances
 calibration <-  train[folds_conformal[[3]],] # calibration
   
-# ── 1) Black-box label generation (i.e. estimates of (X,A*)) ───────────────────────
+# ── 1) Black-box label generation (i.e. estimates of (X,A*)) ──────────────────
 ## 1.1) Generate random labels (i.e. A_rd)
 A_rd <- sample(as.numeric(levels_A), size = nrow(calibration), replace = TRUE)
   
@@ -136,7 +136,7 @@ unweighted.naive_new <- trained_policies_results$unweighted.naive
 unweighted.pseudo.naive <- trained_policies_results$unweighted.pseudo.naive
 numalgs <- ncol(doptFactorPredict_cal) # number of baselines
   
-selected_methods <- "ql.SL" 
+selected_method <- "ql.SL" 
 
 # Unweighted aggregation of baselines
 unweighted_probs <- weighted_probs_experts(fitted_experts = doptFactorPredict_cal,
@@ -149,7 +149,7 @@ unweighted_aggregation <- apply(apply(unweighted_probs, 1, function(x){
   
 
 # Extract baseline policies for conformal procedure
-policy_cal <- doptFactorPredict_cal[,selected_methods]
+policy_cal <- doptFactorPredict_cal[,selected_method]
   
 # Randomness injection
 policy_cal_r <- matrix(0, nrow = nrow(calibration), ncol = n_rate)
@@ -159,11 +159,10 @@ for (i in seq_len(n_rate)){
     policy_cal_r[,i] <- mix_factor * A_rd + (1 - mix_factor) * policy_cal
 }
   
-selected_methods <- c(selected_methods,
-                        lapply(random_rate, function(r) {
-                          paste0(selected_methods, " (r=", r, ")")
+selected_methods <- c(lapply(random_rate, function(r) {
+                          paste0(selected_method, " (r=", r, ")")
                         }) |> unlist())
-# ── 2) Train nonconformity score model (i.e. s(X,A)) ───────────────────────
+# ── 2) Train nonconformity score model (i.e. s(X,A)) ──────────────────────────
 # Training performed on train2
 # Two predictions:
 # (i) on calibration
@@ -171,29 +170,12 @@ selected_methods <- c(selected_methods,
  QAW.reg.train_conformal = grf::probability_forest(
      X = cbind(train2[,c(covariates_name,treatment_name)]), 
      Y = train2[,outcome_name] |> as.factor())
-# idx_b1 <- train2[[treatment_name]] == 1
-# idx_b0 <- train2[[treatment_name]] == 0
-# 
-# SL_A1_conformal <- SuperLearner::SuperLearner(
-#   Y = as.numeric(train2[idx_b1, outcome_name]),
-#   X = train2[idx_b1, covariates_name, drop = FALSE],
-#   SL.library = SL.library_cond, family = binomial())
-# 
-# SL_A0_conformal <- SuperLearner::SuperLearner(
-#   Y = as.numeric(train2[idx_b0, outcome_name]),
-#   X = train2[idx_b0, covariates_name, drop = FALSE],
-#   SL.library = SL.library_cond, family = binomial())
-  
-# ── 3) Calibration step  ────────────────────────────────────────────────────
+
+# ── 3) Calibration step  ──────────────────────────────────────────────────────
  potential_outcomes_cal <- do.call(cbind,lapply(0:1, function(val) {
      new_data <- calibration[,c(covariates_name,treatment_name)]
      new_data[,treatment_name] <- val 
      stats::predict(QAW.reg.train_conformal, newdata = new_data)$predictions[,2]}))
-
-# df_cal_df <- as.data.frame(calibration[, covariates_name, drop = FALSE])
-# new_preds1_naive <- predict(SL_A1_conformal, newdata = df_cal_df)$pred
-# new_preds0_naive <- predict(SL_A0_conformal, newdata = df_cal_df)$pred
-# potential_outcomes_cal <- cbind(new_preds0_naive, new_preds1_naive)
 
 # Compute margin score on calibration data 
 margin_po <-  margin_score(potential_outcomes_cal)
@@ -219,7 +201,8 @@ ecdf_data <- apply(cbind(doptFactorPredict_cal,
             linewidth = 1.2
   ) +
   labs(y = "ECDF", x = "Value", colour = "Method")
-ggplot2::ggsave(ecdf_data, filename = paste0("inst/traumacare_example/images/ecdf.pdf"), 
+ggplot2::ggsave(ecdf_data, 
+                filename = paste0("inst/traumacare_example/images/ecdf.pdf"), 
                 width = 10, height = 8)
 
  potential_outcomes_pseudo <- do.call(cbind,lapply(levels_A, function(val) {
@@ -227,20 +210,9 @@ ggplot2::ggsave(ecdf_data, filename = paste0("inst/traumacare_example/images/ecd
      new_data[,treatment_name] <- as.numeric(val)
      stats::predict(QAW.reg.train_conformal, newdata = new_data)$pred[,2]}))
 
-# df_pseudo <- as.data.frame(pseudo.test.predict[, covariates_name, drop = FALSE])
-# new_preds1_naive <- predict(SL_A1_conformal, newdata = df_pseudo)$pred
-# new_preds0_naive <- predict(SL_A0_conformal, newdata = df_pseudo)$pred
-# potential_outcomes_pseudo <- cbind(new_preds0_naive, new_preds1_naive)
-
-
 # Compute margin score on pseudo test data (for r selection)
 margin_po_pseudo <-  margin_score(potential_outcomes_pseudo)
   
-# df_new_df <- as.data.frame(df_new_sample[, covariates_name, drop = FALSE])
-# new_preds1_naive <- predict(SL_A1_conformal, newdata = df_new_df)$pred
-# new_preds0_naive <- predict(SL_A0_conformal, newdata = df_new_df)$pred
-# potential_outcomes_new <- cbind(new_preds0_naive, new_preds1_naive)
-
  potential_outcomes_new <-  do.call(cbind, lapply(levels_A, function(val) {
    new_data <- df_new_sample[, covariates_name]
    new_data[,treatment_name] <- as.numeric(val)
@@ -267,7 +239,7 @@ results_policy <- apply(r0_scores_policy, 2, function(x){
                         treatment_name = treatment_name, ab = ab, 
                         outcome_name = outcome_name)
   }) 
-names(results_policy) <- selected_methods[-1]  
+names(results_policy) <- selected_methods 
 
 
 # Aggregation-based noisy labels
@@ -285,13 +257,15 @@ results_agg <- table.evaluation.real(conf_set_agg,
                                      outcome_name = outcome_name)
   
 # ── 2.GREATEST LOWER BOUND (GLB) ──────────────────────────────────────────────
-# ── Using regression forest for estimation ──────────────────────────────────
+# ── Using regression forest for estimation ────────────────────────────────────
 lowers <- uppers <- matrix(0, nrow=nrow(pseudo.test.predict), ncol=m)
 for (l in as.numeric(levels_A)){
     data_l <- data.frame(pseudo.test.predict[,c(covariates_name, 
                                                 treatment_name)])
     data_l[,treatment_name] <- l
-    pred <- stats::predict(model.glb.pf, newdata = data_l, estimate.variance = TRUE)
+    pred <- stats::predict(model.glb.pf, 
+                           newdata = data_l, 
+                           estimate.variance = TRUE)
     se <- sqrt(pred$variance.estimates[,2])
     lowers[,l+1] <- pred$predictions[,2] - z * se
     uppers[,l+1] <- pred$predictions[,2] + z * se}
@@ -330,25 +304,33 @@ results_glb_glm <- table.evaluation.real(conf_set_glm,
                                         outcome_name = outcome_name, 
                                         zero_indexed = TRUE)
   
-  
+# Save confidence intervals 
 saveRDS(pred_pseudo, file = "inst/traumacare_example/images/conf.rds")
 
-dynamic_methods <- unlist(lapply(names(results_policy), function(m) {paste0("Conformal ", m)})) 
+# ── 3.Create figures for the evaluation fold ──────────────────────────────────
+dynamic_methods <- unlist(lapply(names(results_policy), function(m) {
+  paste0("Conformal ", m)})) 
 names(results_policy) <- dynamic_methods
 all_results <- c(results_policy, 
                  list("Conformal aggregation" = results_agg), 
                  list("GLB PF" = results_glb_pf),
                  list("GLB GLM" = results_glb_glm))
 
+# Save results
+saveRDS(all_results, 
+        file = "inst/traumacare_example/images/all_results.rds")
 
-saveRDS(all_results, file = "inst/traumacare_example/images/all_results.rds")
+order_elements <- c("GLB PF", "GLB GLM", names(results_policy),
+                    "Conformal aggregation")
 
-order_elements <- c("GLB PF", "GLB GLM", names(results_policy), "Conformal aggregation")
-
+# Cardinality plot 
 cardinality <- bind_rows(lapply(all_results, `[[`, 1), 
-                         .id = "Set-valued policy") |> 
+                         .id = "Set-valued policy") 
+
+cardinality_plot <- cardinality|> 
   select(all_of(order_elements)) |>
-  pivot_longer(cols = everything(), names_to = "Method", values_to = "Values") |> 
+  pivot_longer(cols = everything(), names_to = "Method", 
+               values_to = "Values") |> 
   mutate(Method = factor(Method, levels = order_elements)) |> 
   ggplot(aes(x = Method, y = Values)) +
   geom_point(shape = 3) + 
@@ -358,20 +340,21 @@ cardinality <- bind_rows(lapply(all_results, `[[`, 1),
     legend.position = "none"
   )
 
-ggsave(cardinality, 
+ggsave(cardinality_plot, 
        file = "inst/traumacare_example/images/cardinality_pseudo.pdf", 
        width = 10, height = 6)
 
-table_results <- bind_rows(lapply(all_results, `[[`, 2), 
-                         .id = "Set-valued policy")
-
-spv_data <- lapply(all_results, `[[`, 3)
+# SPV plot 
+spv_data <- lapply(all_results, `[[`, 3)|>
+  bind_rows(.id = "Set-valued policy")
 
 doctors <- mean(pseudo.test.predict[,outcome_name])
 naive_baseline <- Q.all.pseudo.r[cbind(1:nrow(pseudo.test.predict), 
                                        unweighted.pseudo.naive+1)] |> mean()
-plot_spv <- bind_rows(spv_data, .id = "Set-valued policy")|> 
-  mutate(`Set-valued policy` = factor(`Set-valued policy`, levels = order_elements)) |> 
+plot_spv <- spv_data |> 
+  filter(policy=="Propensity")|>
+  mutate(`Set-valued policy` = factor(`Set-valued policy`, 
+                                      levels = order_elements)) |> 
   ggplot( aes(x = `Set-valued policy`, y = value, 
               ymin = lower, ymax = upper, 
               color = `Set-valued policy`)) +
@@ -381,7 +364,8 @@ plot_spv <- bind_rows(spv_data, .id = "Set-valued policy")|>
              linetype = "dashed")+
   geom_hline(yintercept = naive_baseline, color="red",
              linetype = "dashed")+
-  facet_grid(policy~estimator)+ 
+  facet_grid(~estimator)+ 
+  ylim(c(0.90,1))+
   theme(
     axis.text.x = element_text(angle = 30, hjust = 1),
     legend.position = "none")+
@@ -389,6 +373,158 @@ plot_spv <- bind_rows(spv_data, .id = "Set-valued policy")|>
 
 ggsave(plot_spv,
        filename = "inst/traumacare_example/images/SPV_boxplots_pseudo.pdf", 
-       width = 10, height = 8)
+       width = 10, height = 5)
 
+# Latex table 
+table_results <- bind_rows(lapply(all_results, `[[`, 2), .id = "Set-valued policy") |>
+  mutate(across(-1, ~ sprintf("%.3f", coalesce(as.numeric(.x), 0)))) |>
+  rename_with(~ paste0("Prop. of \\{", .x, "\\}"), -1)
+
+spv_clean <- spv_data |>
+  mutate(
+    Metric = sprintf("%s SPV %s", estimator, tolower(policy)),
+    Val = sprintf("[%.3f, %.3f]", lower, upper)
+  ) |>
+  select(`Set-valued policy` = 1, Metric, Val) |>
+  pivot_wider(names_from = Metric, values_from = Val)
+
+
+cardinality_clean <- cardinality |>
+  pivot_longer(everything(), 
+               names_to = "Set-valued policy", 
+               values_to = "Mean card.") |>
+  mutate(`Mean card.` = sprintf("%.3f", 
+                                      coalesce(as.numeric(`Mean card.`), 0)))
+
+
+joined_df <- table_results |>
+  left_join(cardinality_clean, by = "Set-valued policy") |>
+  left_join(spv_clean, by = "Set-valued policy") |>
+  t()
+
+colnames(joined_df) <- joined_df[1, ]
+final_data <- as.data.frame(joined_df[-1, , drop = FALSE]) |>
+  select(all_of(order_elements)) |> 
+  tibble::rownames_to_column(var = "Metric")
+
+sub_headers <- c("\\textbf{Set Type}", "PF", "GLM", 
+                 paste0("r=", random_rate), "r=0")
+
+header_groups <- c(
+  " " = 1,
+  "\\\\textbf{GLB}" = 2,
+  "\\\\textbf{Conformal ql.SL}" = 4,
+  "\\\\textbf{Conformal Agg.}" = 1)
+
+
+latex_tbl <- kable(
+  final_data,
+  format = "latex",
+  booktabs = TRUE,
+  escape = FALSE,
+  col.names = sub_headers,
+  align = c("l", rep("c", ncol(final_data) - 1)),
+  label = "tab:traumacare") |>
+  add_header_above(header_groups, escape = FALSE) |> 
+  kable_styling(latex_options = c("HOLD_position"), font_size = 9)
+
+
+writeLines(
+  c(
+    "% latex table generated in R",
+    "\\begin{table}[H]",
+    "\\centering",
+    "\\small",
+    "\\setlength{\\tabcolsep}{1pt}",
+    as.character(latex_tbl),
+    "\\end{table}"
+  ),
+  con = "inst/traumacare_example/images/table.txt")
+
+# ── 4. Final prediction  ──────────────────────────────────────────────────────
+# Train nuisances for SPV plug-in estimator
+QAW.reg.train.all = grf::probability_forest(
+  X = cbind(X,A), Y = Y |> as.factor())
+
+Q.all <-  do.call(cbind,lapply(0:1, function(val) {
+  new_data <- cbind(df_new_sample[,covariates_name], val)
+  stats::predict(QAW.reg.train.all, newdata = new_data)$predictions[,2]}))
+
+g.reg.train.all <- grf::probability_forest(X = X,Y = A|> as.factor())
+
+gAW.pred.all <- stats::predict(g.reg.train.all, 
+                               newdata = df_new_sample[, covariates_name])$predictions
+
+# Final predictions
+# GLB GLM 
+lowers <- uppers <- matrix(0, nrow=nrow(df_new_sample), ncol=m)
+for (l in as.numeric(levels_A)){
+  data_l <- df_new_sample[,covariates_name]
+  data_l[,treatment_name] <- l
+  pred <- stats::predict(model.glb.glm, newdata = data_l, se.fit = TRUE, type = "response")
+  se <- pred$se.fit 
+  lowers[,l+1] <- (pred$fit - z * se) |> as.numeric()
+  uppers[,l+1] <- (pred$fit + z * se) |> as.numeric()}
+uppest_lrw_bound <- apply(lowers, 1, max)
+conf_set_glm_12_final <- binary_to_confidence_set(uppers>=uppest_lrw_bound)
+conf_set_glm_final <- lapply(conf_set_glm_12_final, function(x)x-1)
+
+spv_final.glb <- set_policy_value_plug_in(conf_set_glm_final, 
+                                      test = df_new_sample,
+                                      Q.all.actions = Q.all,
+                                      gAX.pred = gAW.pred.all,
+                                      zero_indexed = TRUE,
+                                      levels = levels_A)
+
+tab.glb <- table(sapply(conf_set_glm_final, function(el){
+  paste0("{", paste0(el, collapse = ", "), "}")}))/length(conf_set_glm_final)
+
+cardinality.mean.glb <- sapply(1:length(conf_set_glm_final), 
+                           function(i) {
+                             length(conf_set_glm_final[[i]])|> as.numeric()
+                             }) |> mean()
+
+# Conformal r=0
+quant <- stats::quantile(r0_scores_policy[,which(random_rate==0)], (1-alpha))
+conf_12_final <- binary_to_confidence_set(margin_po_new < quant)
+conf_final <- lapply(conf_12_final,function(x)x-1)
+
+spv_final.conf <- set_policy_value_plug_in(conf_final, 
+                                      test = df_new_sample,
+                                      Q.all.actions = Q.all,
+                                      gAX.pred = gAW.pred.all,
+                                      zero_indexed = TRUE,
+                                      levels = levels_A)
+
+tab.conf <- table(sapply(conf_final, function(el){
+  paste0("{", paste0(el, collapse = ", "), "}")}))/length(conf_set_glm_final)
+
+cardinality.mean.conf <- sapply(1:length(conf_final), 
+                           function(i) {
+                             length(conf_set_glm_final[[i]])|> as.numeric()
+                           }) |> mean()
+
+# Create a small summary table
+tab_main <- cbind(
+  "GLB GLM"       = tab.glb, 
+  "Conformal r=0" = tab.conf)
+
+rownames(tab_main) <- paste0("Prop. of ", rownames(tab_main))
+
+results_final <- rbind(
+  tab_main,
+  "Propensity SPV" = c(spv_final.glb[[2]], spv_final.conf[[2]]))
+
+little_latex_table <- kable(results_final, format = "latex", booktabs = TRUE, digits = 3)
+writeLines(
+  c(
+    "% latex table generated in R",
+    "\\begin{table}[H]",
+    "\\centering",
+    "\\small",
+    "\\setlength{\\tabcolsep}{1pt}",
+    as.character(little_latex_table),
+    "\\end{table}"
+  ),
+  con = "inst/traumacare_example/images/table_little.txt")
 
