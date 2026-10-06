@@ -18,4 +18,4 @@ inst/traumacare_example/images_sl/
 inst/traumacare_example/intermediate/
 inst/traumacare_example/cohort_test.csv
 inst/traumacare_example/cohort_train.csv
-inst/traumacare_example/1-Prepare_data.R
+inst/traumacare_example/Prepare_data.R
