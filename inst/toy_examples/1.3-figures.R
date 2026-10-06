@@ -119,9 +119,8 @@ latex_tbl <- kable(
   escape = FALSE,
   col.names = sub_headers,
   align = c("l", rep("c", ncol(df_summary) - 1)),
-  label = "tab:exact_matches_mean"
-) %>%
-  add_header_above(header_groups, escape = FALSE) %>% 
+  label = "tab:exact_matches_mean") |>
+  add_header_above(header_groups, escape = FALSE) |> 
   kable_styling(latex_options = c("HOLD_position"), font_size = 9)
 
 writeLines(
@@ -154,8 +153,8 @@ if(type =="linear"){
   target_cols <- c("Set Type", "GLB GRF", "GLB GLM", normal_dynamic_methods)
   
   # Subset rows and columns
-  df_summary_reduced <- df_summary %>%
-    filter(!`Set Type` %in% c("Uniform SPV", "Propensity SPV")) %>%
+  df_summary_reduced <- df_summary |>
+    filter(!`Set Type` %in% c("Uniform SPV", "Propensity SPV")) |>
     select(all_of(target_cols))
   
   # Construct sub-headers vector
@@ -186,8 +185,8 @@ if(type =="linear"){
     escape = FALSE,
     col.names = sub_headers_reduced,
     align = c("l", rep("c", ncol(df_summary_reduced) - 1)),
-    label = "tab:exact_matches_mean") %>%
-    add_header_above(header_groups_reduced, escape = FALSE) %>%
+    label = "tab:exact_matches_mean") |>
+    add_header_above(header_groups_reduced, escape = FALSE) |>
     kable_styling(latex_options = c("HOLD_position"), font_size = 9)
   
   writeLines(
@@ -242,11 +241,11 @@ df_spv.prop <- spv_prop_all |>
 potential.outcomes <- SL.out$potential_outcomes
 opt.treatment <- do.call(rbind, SL.out$optimal_policy_new)
 opt.value <- SL.out$potential_outcomes[cbind(1:nrow(potential.outcomes), 
-                                             opt.treatment[,1])] %>% mean()
+                                             opt.treatment[,1])] |> mean()
 levels_A <- levels(SL.out$df_new_sample$A)
 m <- length(levels_A)
 A_rd <- sample(as.numeric(levels_A), size = nrow(SL.out$df_new_sample), replace = TRUE)
-random.value <- SL.out$potential_outcomes[cbind(1:nrow(potential.outcomes), A_rd)] %>% mean()
+random.value <- SL.out$potential_outcomes[cbind(1:nrow(potential.outcomes), A_rd)] |> mean()
 
 # Create figure
 spv_boxplot <- bind_rows(df_spv.unif, df_spv.prop, df_pv) |> 

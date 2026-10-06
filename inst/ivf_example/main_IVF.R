@@ -67,8 +67,8 @@ SL.out$df_new_sample <- NULL # subsample of all data for generating prediction s
 
 # ── Define data parameters  ───────────────────────────────────────────────────
 covariates_name <- # name for covariates in dataset
-X <- SL.out$df_obs[,covariates_name] %>% as.matrix()
-X_new <- SL.out$df_new_sample[,covariates_name] %>% as.matrix()
+X <- SL.out$df_obs[,covariates_name] |> as.matrix()
+X_new <- SL.out$df_new_sample[,covariates_name] |> as.matrix()
 
 treatment_name <-  # name of treatment indicator in dataset
 A <- SL.out$df_obs[,treatment_name]

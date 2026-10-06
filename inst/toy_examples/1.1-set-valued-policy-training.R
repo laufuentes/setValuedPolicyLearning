@@ -24,7 +24,7 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
   calibration <-  train_b[folds[[3]],] # calibration
   
   optimal_policy_cal <- optimal_policy_train[folds[[3]]]
-  true_potential_outcomes_cal <-train_complete[folds[[3]],] %>% 
+  true_potential_outcomes_cal <-train_complete[folds[[3]],] |> 
     select(starts_with("Potential_outcomes."))
   
   # ── 1) Black-box label generation (i.e. estimates of (X,A*)) ───────────────────────
@@ -166,8 +166,8 @@ results_list <- parallel::mclapply(seq_len(n_bootstrap), function(bootstrap_idx)
     data_l <- data.frame(SL.out$df_new[,covariates_name], A=factor(l, levels = levels_A))
     pred <- stats::predict(glb.model.lm, newdata = data_l, se.fit = TRUE)
     se <- pred$se.fit
-    lowers[,l] <- (pred$fit - z * se) %>% as.numeric()
-    uppers[,l] <- (pred$fit + z * se) %>% as.numeric()
+    lowers[,l] <- (pred$fit - z * se) |> as.numeric()
+    uppers[,l] <- (pred$fit + z * se) |> as.numeric()
   }
   uppest_lrw_bound <- apply(lowers, 1, max)
   conf_set_lm <- binary_to_confidence_set(uppers>=uppest_lrw_bound)

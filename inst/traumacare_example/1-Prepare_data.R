@@ -22,8 +22,8 @@ train <- read.csv("inst/traumacare_example/cohort_train.csv")
 test <- read.csv("inst/traumacare_example/cohort_test.csv")
 
 # ── Change NA to "Non_applicable" ────────────────────────────────────────────
-train$CAUSE_DECES[which(train$CAUSE_DECES %>% is.na())] <- "Non_applicable"
-test$CAUSE_DECES[which(test$CAUSE_DECES %>% is.na())] <- "Non_applicable"
+train$CAUSE_DECES[which(train$CAUSE_DECES |> is.na())] <- "Non_applicable"
+test$CAUSE_DECES[which(test$CAUSE_DECES |> is.na())] <- "Non_applicable"
 
 # ── Replace ND, NR and IMP ────────────────────────────────────────────────────
 train[(train=="ND" | train=="NR" | train =="IMP")] <- NA
@@ -49,8 +49,8 @@ vars_to_num <- c(#"AGE",
                  "SHOCK_INDEX_INVERSE", 
                  "DELARHDECH")
 
-train <- train %>% mutate(across(all_of(vars_to_num), as.numeric))
-test  <- test  %>% mutate(across(all_of(vars_to_num), as.numeric))
+train <- train |> mutate(across(all_of(vars_to_num), as.numeric))
+test  <- test  |> mutate(across(all_of(vars_to_num), as.numeric))
 
 # ── Define outputs  ──────────────────────────────────────────────────────────
 # Died after 24h and before 28 days 
@@ -64,13 +64,13 @@ test$Y_after_24h_before_28d <- ifelse((test$DECES=="Oui") &
 outcome_name <- "Y_after_24h_before_28d"
 
 # Delete NAs in ouputs for train set (we don't know if they died)
-to_delete_train <- which(train$Y_after_24h_before_28d %>% is.na()) # TODO : test that train$Y_less_28d has same NAs
+to_delete_train <- which(train$Y_after_24h_before_28d |> is.na()) # TODO : test that train$Y_less_28d has same NAs
 train<- train[-to_delete_train,] 
 
 # Transform categorical variables in factors
-train <- train %>% mutate(across(where(is.character), 
+train <- train |> mutate(across(where(is.character), 
                                  as.factor))
-test <- test %>% mutate(across(where(is.character), 
+test <- test |> mutate(across(where(is.character), 
                                as.factor))
 
 # Change treatment (NEUROCHIR) to factor
@@ -94,10 +94,10 @@ imp.train <- mice(rbind(train,test)[,-1], ignore=c(rep(FALSE, nrow(train)),
 imp_df <- complete(imp.train) # complete data imputation
 
 # train data complete
-train_imp <- imp_df[1:nrow(train),] %>% 
+train_imp <- imp_df[1:nrow(train),] |> 
   select(-c("DECES", "CAUSE_DECES", "DELARHDECH")) 
 
-train_imp <- train_imp %>% 
+train_imp <- train_imp |> 
   mutate("SUBJECT_REF"=Subject_ref_train_test[1:nrow(train_imp)])
 
 # test data complete
@@ -106,22 +106,22 @@ test_imp <- imp_df[(nrow(train)+1):nrow(imp_df),]
 write.csv(mean(test_imp[,outcome_name]),
           file=paste0("inst/traumacare_example/intermediate/Clinicians", "_", outcome_name, ".csv"))
 
-test_imp <- test_imp %>% 
+test_imp <- test_imp |> 
   mutate("SUBJECT_REF"=Subject_ref_train_test[
-    (nrow(train_imp)+1):length(Subject_ref_train_test)]) %>% 
+    (nrow(train_imp)+1):length(Subject_ref_train_test)]) |> 
   select(-all_of(remove_variables[remove_variables!="SUBJECT_REF"])) # all_of(remove_variables)
 
 # re-convert categories to factors 
-train_imp <- train_imp %>% 
+train_imp <- train_imp |> 
   mutate(across(where(is.character), as.factor))
 
-test_imp <- test_imp %>% 
+test_imp <- test_imp |> 
   mutate(across(where(is.character), as.factor))
 
 covariate_name <- setdiff(colnames(train_imp), 
                           c(remove_variables)) # covariates indicator string
 
-true_outputs_test <- imp_df[(nrow(train_imp)+1):nrow(imp_df), c(outcome_name,treatment_name)] %>% 
+true_outputs_test <- imp_df[(nrow(train_imp)+1):nrow(imp_df), c(outcome_name,treatment_name)] |> 
   mutate("SUBJECT_REF" = Subject_ref_train_test[
     (nrow(train_imp)+1):length(Subject_ref_train_test)])
 
@@ -153,25 +153,25 @@ test_one_hot <- predict(dummies,
                         newdata = test_imp)
 
 # Adapt string format for some categories
-colnames(train_one_hot) <- colnames(train_one_hot) %>%
-  gsub(pattern = " ", replacement = "_") %>%
-  gsub(pattern = "-", replacement = "_") %>%
-  gsub(pattern = "/", replacement = "ou") %>%
-  gsub(pattern = ",", replacement = "") %>%
-  gsub(pattern = "'", replacement = "") %>% 
-  gsub(pattern = "\\.", replacement = "_") %>%
-  gsub(pattern = "\\(", replacement = "") %>%
+colnames(train_one_hot) <- colnames(train_one_hot) |>
+  gsub(pattern = " ", replacement = "_") |>
+  gsub(pattern = "-", replacement = "_") |>
+  gsub(pattern = "/", replacement = "ou") |>
+  gsub(pattern = ",", replacement = "") |>
+  gsub(pattern = "'", replacement = "") |> 
+  gsub(pattern = "\\.", replacement = "_") |>
+  gsub(pattern = "\\(", replacement = "") |>
   gsub(pattern = "\\)", replacement = "") # training one-hot encoded version
 
 
-colnames(test_one_hot) <-  colnames(test_one_hot) %>%
-  gsub(pattern = " ", replacement = "_") %>%
-  gsub(pattern = "-", replacement = "_") %>%
-  gsub(pattern = "/", replacement = "ou") %>%
-  gsub(pattern = ",", replacement = "") %>%
-  gsub(pattern = "'", replacement = "") %>% 
-  gsub(pattern = "\\.", replacement = "_")%>% 
-  gsub(pattern = "\\(", replacement = "") %>%
+colnames(test_one_hot) <-  colnames(test_one_hot) |>
+  gsub(pattern = " ", replacement = "_") |>
+  gsub(pattern = "-", replacement = "_") |>
+  gsub(pattern = "/", replacement = "ou") |>
+  gsub(pattern = ",", replacement = "") |>
+  gsub(pattern = "'", replacement = "") |> 
+  gsub(pattern = "\\.", replacement = "_")|> 
+  gsub(pattern = "\\(", replacement = "") |>
   gsub(pattern = "\\)", replacement = "") # testing one-hot encoded version
 
 # Select only .Oui variables and exclude one category for MECANISME_CAUSE 
@@ -206,18 +206,18 @@ categ_var_selected <- c(
 # For MECANISME_CAUSE: we excluded ".Inconnu" 
 
 # Create the one-hot encoded version of training data
-train_imp_onehot <- cbind(train_imp %>% select(-all_of(categ_var)),
+train_imp_onehot <- cbind(train_imp |> select(-all_of(categ_var)),
                           train_one_hot[,categ_var_selected]) 
-train_imp_onehot <- train_imp_onehot %>% 
+train_imp_onehot <- train_imp_onehot |> 
   mutate(across(all_of(categ_var_selected), as.factor))
 
 write.csv(train_imp_onehot, row.names = FALSE,
           file= file.path("inst/traumacare_example/intermediate/train_imp_one_hot.csv"))
 
 # Create the one-hot encoded version of testing data
-test_imp_onehot <- cbind(test_imp %>% select(-all_of(categ_var)),
+test_imp_onehot <- cbind(test_imp |> select(-all_of(categ_var)),
                           test_one_hot[,categ_var_selected])
-test_imp_onehot <- test_imp_onehot %>% 
+test_imp_onehot <- test_imp_onehot |> 
   mutate(across(all_of(categ_var_selected), as.factor))
 
 write.csv(test_imp_onehot, row.names = FALSE,

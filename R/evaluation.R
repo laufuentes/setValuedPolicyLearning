@@ -176,6 +176,9 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
     update <- stats::glm(
       Y01 ~ -1 + H_obs + offset(logit_Q_obs), family = "quasibinomial")
     e <- update$coefficients
+    if (is.na(e) || !update$converged || abs(e) > 10) {
+      warning("TMLE update failed; using e = 0 (plug-in)")
+      e <- 0}
     Qd01_star = stats::plogis(logit.Qd01 + e * H_mat)
     Qd_stars  = Qd01_star * diff(ab) + min(ab)
     m_star <- rowSums(Qd_stars * q_mat)
@@ -189,8 +192,8 @@ set_policy_value_tmle <- function(test_set, Q.all.actions, gAX.pred, Y, A, ab,
     out <- mean(m_star) 
     se  <- sd(phi) / sqrt(n)
     attr(out, "se")   <- se
-    attr(out, "low")  <- out - z * se
-    attr(out, "high") <- out + z * se
+    attr(out, "low")  <- mean(m_star) - z * se
+    attr(out, "high") <- mean(m_star) + z * se
     out
   }
   
@@ -250,8 +253,8 @@ set_policy_value_aipw <- function(test_set, Q.all.actions, gAX.pred, Y, A,
     out <- mean(phi)
     se  <- sd(phi) / sqrt(n)
     attr(out, "se")   <- se
-    attr(out, "low")  <- out - z * se
-    attr(out, "high") <- out + z * se
+    attr(out, "low")  <- mean(phi) - z * se
+    attr(out, "high") <- mean(phi) + z * se
     out}
   
   q_unif <- Ind /rowSums(Ind)
@@ -470,8 +473,9 @@ table.evaluation <- function(test_set, optimal_policy_new,
 #' @param treatment_name String indicating the treatment variable. Defaults to "A".
 #' @param outcome_name String indicating the outcome variable. Defaults to "Y".
 #'
-#' @return A list containing different evaluation metrics: exact match, 
-#' strict and relaxed coverage, and set-policy values (uniform and propensity). 
+#' @return A list containing different evaluation metrics: mean cardinality, 
+#' count of type of treatment assignments and set-policy values 
+#' (uniform and propensity). 
 #' @export
 table.evaluation.real <- function(test_set,
                              prop_score_new, potential_outcomes, 
@@ -534,7 +538,9 @@ table.evaluation.real <- function(test_set,
     )
   )
   
+  tab <- table(sapply(test_set, function(el){
+    paste0("{", paste(el, collapse = ", "), "}")}))/length(test_set)
   
   
-  return(list(cardinality.mean, results_df))
+  return(list(cardinality.mean, tab, results_df))
 }

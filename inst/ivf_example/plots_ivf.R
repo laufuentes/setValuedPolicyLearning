@@ -98,7 +98,7 @@ for(i in 1:length(alphas)){
                                    levels = seq_len(nrow(binary_confidence_set))))
 
     mean_cardinality[i,1,r]<- width(pred_set = confidence_set)
-    heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) %>% as.matrix()
+    heatmaps_r[,,i,r,1] <- heatmap_treatments(confidence_set, levels_A) |> as.matrix()
     spv_results <- ivf_set_policy_values(confidence_set, ab = ab, ab_xi=ab_xi, 
                                          n_test = n_test, 
                                          test= SL.out$df_new, levels=levels_A,
@@ -137,7 +137,7 @@ for(i in 1:length(alphas)){
                                 indices_naive[, "row"])
 
   mean_cardinality[i,2,]<- width(pred_set = naive.confidence_set)
-  heatmaps_r[,,i,r,2] <- heatmap_treatments(naive.confidence_set, levels_A) %>% 
+  heatmaps_r[,,i,r,2] <- heatmap_treatments(naive.confidence_set, levels_A) |> 
     as.matrix()
   spv_results <- ivf_set_policy_values(naive.confidence_set, ab = ab, 
                                        ab_xi=ab_xi,
@@ -167,8 +167,8 @@ saveRDS(object = results,
 
 # Set-policy value results for primary outcome (Y)
 spv_data_Y <- dplyr::bind_rows(
-  make_block(1, "Unweighted", results[["spv_y_random"]], alphas, random_rate) %>%
-    dplyr::rename(value_Y=value) %>%
+  make_block(1, "Unweighted", results[["spv_y_random"]], alphas, random_rate) |>
+    dplyr::rename(value_Y=value) |>
     dplyr::mutate(choice="Random"),
   purrr::map_dfr(1:dim(results[["spv_y_random"]])[1], function(a) {
     data.frame(
@@ -178,8 +178,8 @@ spv_data_Y <- dplyr::bind_rows(
       level = paste0(alphas[a]),
       type = paste0(random_rate[1])
     )}),
-  make_block(1, "Unweighted", results[["spv_y_min"]], alphas, random_rate) %>%
-    rename(value_Y = value) %>%
+  make_block(1, "Unweighted", results[["spv_y_min"]], alphas, random_rate) |>
+    rename(value_Y = value) |>
     mutate(choice="Lowest"),
   purrr::map_dfr(1:dim(results[["spv_y_min"]])[1], function(a) {
     data.frame(
@@ -193,8 +193,8 @@ spv_data_Y <- dplyr::bind_rows(
 
 # Set-policy value results for second outcome (xi)
 spv_data_xi <- dplyr::bind_rows( 
-  make_block(1, "Unweighted", results[["spv_xi_random"]], alphas, random_rate) %>%
-    dplyr::rename(value_xi = value) %>%
+  make_block(1, "Unweighted", results[["spv_xi_random"]], alphas, random_rate) |>
+    dplyr::rename(value_xi = value) |>
     dplyr::mutate(choice="Random"),
   purrr::map_dfr(1:dim(results[["spv_xi_random"]])[1], function(a) {
   data.frame(
@@ -204,8 +204,8 @@ spv_data_xi <- dplyr::bind_rows(
     level = paste0(alphas[a]),
     type = paste0(random_rate[1])
   )}),
-  make_block(1, "Unweighted", results[["spv_xi_min"]], alphas, random_rate) %>%
-    dplyr::rename(value_xi = value) %>%
+  make_block(1, "Unweighted", results[["spv_xi_min"]], alphas, random_rate) |>
+    dplyr::rename(value_xi = value) |>
     dplyr::mutate(choice="Lowest"),
   purrr::map_dfr(1:dim(results[["spv_xi_min"]])[1], function(a) {
   data.frame(
@@ -216,20 +216,20 @@ spv_data_xi <- dplyr::bind_rows(
     type = paste0(random_rate[1])
   )}))
 
-spv_means_Y <- spv_data_Y %>%
-  dplyr::group_by(mechanism, level, type, choice) %>%
+spv_means_Y <- spv_data_Y |>
+  dplyr::group_by(mechanism, level, type, choice) |>
   dplyr::summarise(
     sd_spv_Y = sd(value_Y, na.rm = TRUE),
     value_Y = mean(value_Y, na.rm = TRUE),.groups = "drop")
 
-spv_means_xi <- spv_data_xi %>%
-  dplyr::group_by(mechanism, level, type, choice) %>%
+spv_means_xi <- spv_data_xi |>
+  dplyr::group_by(mechanism, level, type, choice) |>
   dplyr::summarise(sd_spv_xi = sd(value_xi, na.rm = TRUE),
                    value_xi = mean(value_xi, na.rm = TRUE),.groups = "drop")
 
 
-spv_data <- list(spv_means_Y, spv_means_xi) %>%
-  purrr::reduce(full_join, by = c("mechanism","level", "type", "choice")) %>%
+spv_data <- list(spv_means_Y, spv_means_xi) |>
+  purrr::reduce(full_join, by = c("mechanism","level", "type", "choice")) |>
   dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
@@ -268,10 +268,10 @@ mean_cardinality_data <- dplyr::bind_rows(
     mechanism = "GLB",
     type = paste0(random_rate[1])
   )
-) %>%
-  dplyr::group_by(mechanism, type) %>%
-  dplyr::mutate(levels = alphas[row_number()]) %>%
-  dplyr::ungroup() %>%
+) |>
+  dplyr::group_by(mechanism, type) |>
+  dplyr::mutate(levels = alphas[row_number()]) |>
+  dplyr::ungroup() |>
   dplyr::mutate(color_group = case_when(
     mechanism == "Unweighted" ~ paste0("type_", type),
     mechanism == "GLB" ~ "GLB"
@@ -369,7 +369,7 @@ ggplot2::ggsave(spv_plot_xi,
 
 # Set-policy value of Y vs. set-policy value for xi
 level_choice <- 0.1
-spv_Y_xi_plot <- ggplot2::ggplot(spv_data %>% filter(level==level_choice),
+spv_Y_xi_plot <- ggplot2::ggplot(spv_data |> filter(level==level_choice),
                             ggplot2::aes(x = value_Y,
                                          y= value_xi,
                                          color = color_group,
@@ -408,10 +408,10 @@ mean_cardinality_plot <- ggplot2::ggplot(data=mean_cardinality_data,
                                    ggplot2::aes(x=factor(levels), y=value,
                                                 color=color_group))+
   ggplot2::geom_line(aes(group=color_group), alpha=0.5, linewidth = 1.5 )+
-  ggplot2::geom_point(data=mean_cardinality_data%>% filter(mechanism=="Unweighted"),
+  ggplot2::geom_point(data=mean_cardinality_data|> filter(mechanism=="Unweighted"),
                       aes(x=factor(levels), y=value,
                           color=color_group, group=color_group), size = 3)+
-  ggplot2::geom_point(data = mean_cardinality_data%>% filter(mechanism=="GLB"),
+  ggplot2::geom_point(data = mean_cardinality_data|> filter(mechanism=="GLB"),
                       aes(x=factor(levels), y=value,
                           color=color_group, group=color_group), shape = 4, 
                       size = 3)+
@@ -454,8 +454,8 @@ for (t in 1:dim(heatmaps_r)[5]){
       colnames(heatmaps_r[,,i,r,t]) <- levels_A
       file <- as.data.frame(heatmaps_r[,,i,r,t]) 
       colnames(file) <- levels_A
-      file <- file %>%
-        dplyr::mutate(row_id = dplyr::row_number()) %>%
+      file <- file |>
+        dplyr::mutate(row_id = dplyr::row_number()) |>
         tidyr::pivot_longer(cols = -row_id, names_to = "column_m", 
                             values_to = "value")
       p <- ggplot2::ggplot(file, 

@@ -29,7 +29,7 @@ df_obs <- exp[[1]] # extract observational data
 exp_new_sample <- generate_data(5000, is_RCT = FALSE, seed = seed+1, type = type)
 # extract observational data
 df_test <- exp_new_sample[[1]]
-potential_outcomes <- exp_new_sample[[2]] %>%
+potential_outcomes <- exp_new_sample[[2]] |>
   select(starts_with("Potential_outcomes."))
 prop_score_new <- exp_new_sample[[4]] 
 
@@ -76,8 +76,8 @@ if(type=="tree"){
     data_l <- data.frame(df_test[,covariates_name], A=factor(l, levels = levels_A))
     pred <- stats::predict(glb.model.lm, newdata = data_l, se.fit = TRUE)
     se <- pred$se.fit
-    lowers[,l] <- (pred$fit - z * se) %>% as.numeric()
-    uppers[,l] <- (pred$fit + z * se) %>% as.numeric()
+    lowers[,l] <- (pred$fit - z * se) |> as.numeric()
+    uppers[,l] <- (pred$fit + z * se) |> as.numeric()
   }
   uppest_lrw_bound <- apply(lowers, 1, max)
 }

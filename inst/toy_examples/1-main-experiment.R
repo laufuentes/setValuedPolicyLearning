@@ -45,7 +45,7 @@ summary(df_complete)
 # extract optimal policy
 SL.out$optimal_policy <- exp[[3]]
 # extract potential outcomes
-SL.out$potential_outcomes_train <- df_complete %>%
+SL.out$potential_outcomes_train <- df_complete |>
   select(starts_with("Potential_outcomes."))
 
 ### Test observations
@@ -55,15 +55,15 @@ SL.out$df_new_sample <- exp_new_sample[[1]]
 # extract optimal policy
 SL.out$optimal_policy_new <- exp_new_sample[[3]]
 # extract potential outcomes
-SL.out$potential_outcomes <- exp_new_sample[[2]] %>%
+SL.out$potential_outcomes <- exp_new_sample[[2]] |>
   select(starts_with("Potential_outcomes."))
 SL.out$prop_score_new <- exp_new_sample[[4]] 
 
 # ── Define data parameters  ─────────────────────────────────────────────────
 # Baseline covariates
 covariates_name <- c("X1","X2", "X3", "X4", "X5")
-X <- SL.out$df_obs[,covariates_name] %>% as.matrix()
-X_new <- SL.out$df_new_sample[,covariates_name] %>% as.matrix()
+X <- SL.out$df_obs[,covariates_name] |> as.matrix()
+X_new <- SL.out$df_new_sample[,covariates_name] |> as.matrix()
 
 # Treatment
 treatment_name <- "A"

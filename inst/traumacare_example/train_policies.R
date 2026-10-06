@@ -1,4 +1,4 @@
-train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
+train_policies <- function(train_b, train1, calibration, pseudo_test, seed, SL.library_cond=c("SL.mean", "SL.glm")) {
   set.seed(seed)
   cat("training conformal...")
   # Extract base datasets
@@ -56,8 +56,6 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   pred_pseudo_data[["Hybrid_Tree"]] <- stats::predict(hybrid_tree, newdata = pseudo_test[, covariates_name]) - 1
   
   ## ── 4. Q-learning: SuperLearner ────────────────────────────────────────────
-  SL.library_cond <- c("SL.randomForest", "SL.mean", "SL.gam", "SL.glm", 
-                       "SL.xgboost")
   idx_A1 <- train1[[treatment_name]] == 1
   idx_A0 <- train1[[treatment_name]] == 0
   
@@ -109,8 +107,6 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
   
   pred_pseudo_data_naive <- list()
   pred_new_data_naive    <- list()
-  
-  selected_methods <- "MACF"
   
   # Probability Forest (GLB Model)
   model.glb.pf <- probability_forest(
@@ -190,7 +186,7 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
     pseudo_template[[treatment_name]] <- val
     stats::predict(model.glb.glm, newdata = pseudo_template, type = "response")
   })
-  pred_pseudo_data[["ql.glm.interact"]] <- max.col(po_pseudo.glm) - 1
+  pred_pseudo_data_naive[["ql.glm.interact"]] <- max.col(po_pseudo.glm) - 1
   
   doptFactorPredict_new_naive <- do.call(cbind, pred_new_data_naive)
   doptFactorPredict_pseudo_naive <- do.call(cbind, pred_pseudo_data_naive)
@@ -221,7 +217,6 @@ train_policies <- function(train_b, train1, calibration, pseudo_test, seed) {
     doptFactorPredict_pseudo_naive = doptFactorPredict_pseudo_naive,
     model.glb.pf = model.glb.pf, 
     model.glb.glm = model.glb.glm, 
-    selected_methods = selected_methods, 
     unweighted.naive_new = unweighted.naive,
     unweighted.pseudo.naive=unweighted.pseudo.naive))
 }
