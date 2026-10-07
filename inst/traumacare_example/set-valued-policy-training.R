@@ -308,7 +308,7 @@ results_glb_glm <- table.evaluation.real(conf_set_glm,
 saveRDS(pred_pseudo, file = "inst/traumacare_example/images/conf.rds")
 
 # ── 3.Create figures for the evaluation fold ──────────────────────────────────
-dynamic_methods <- unlist(lapply(names(results_policy), function(m) {
+dynamic_methods <- unlist(lapply(selected_methods, function(m) {
   paste0("Conformal ", m)})) 
 names(results_policy) <- dynamic_methods
 all_results <- c(results_policy, 
@@ -320,7 +320,7 @@ all_results <- c(results_policy,
 saveRDS(all_results, 
         file = "inst/traumacare_example/images/all_results.rds")
 
-order_elements <- c("GLB PF", "GLB GLM", names(results_policy),
+order_elements <- c("GLB PF", "GLB GLM", dynamic_methods,
                     "Conformal aggregation")
 
 # Cardinality plot 
@@ -349,8 +349,8 @@ spv_data <- lapply(all_results, `[[`, 3)|>
   bind_rows(.id = "Set-valued policy")
 
 doctors <- mean(pseudo.test.predict[,outcome_name])
-naive_baseline <- Q.all.pseudo.r[cbind(1:nrow(pseudo.test.predict), 
-                                       unweighted.pseudo.naive+1)] |> mean()
+# naive_baseline <- Q.all.pseudo.r[cbind(1:nrow(pseudo.test.predict), 
+#                                        unweighted.pseudo.naive+1)] |> mean()
 plot_spv <- spv_data |> 
   filter(policy=="Propensity")|>
   mutate(`Set-valued policy` = factor(`Set-valued policy`, 
@@ -362,8 +362,8 @@ plot_spv <- spv_data |>
   geom_hline(yintercept = doctors, 
              color="black", 
              linetype = "dashed")+
-  geom_hline(yintercept = naive_baseline, color="red",
-             linetype = "dashed")+
+  # geom_hline(yintercept = naive_baseline, color="red",
+  #            linetype = "dashed")+
   facet_grid(~estimator)+ 
   ylim(c(0.90,1))+
   theme(
